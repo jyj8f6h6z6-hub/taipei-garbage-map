@@ -221,9 +221,8 @@ function showTruckOnMap(best, position) {
   clearTruckMarker();
 
   truckMarker = L.marker([best.lat, best.lng], {
-    icon: createTruckIcon(),
-    zIndexOffset: 500,
-  })
+  zIndexOffset: 500,
+})
     .addTo(map)
     .bindPopup("🚛 推薦停靠點");
 
