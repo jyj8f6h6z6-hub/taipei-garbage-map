@@ -13,8 +13,9 @@ fetch("garbage.json")
     const dataStatus = document.getElementById("dataStatus");
 
     if (dataStatus) {
-      const total = data.meta?.totalValid || stations.length;
-      const updatedAt = data.meta?.updatedAt;
+      const meta = data.meta || {};
+      const total = meta.totalValid || stations.length;
+      const updatedAt = meta.updatedAt;
 
       let updatedText = "未知";
 
