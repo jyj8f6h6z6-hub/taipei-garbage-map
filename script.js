@@ -1,3 +1,9 @@
+var map = L.map("map").setView([25.0330, 121.5654], 14);
+
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  attribution: "© OpenStreetMap"
+}).addTo(map);
+
 var stations = [];
 
 fetch("garbage.json")
@@ -10,7 +16,6 @@ fetch("garbage.json")
     } else if (data && Array.isArray(data.stations)) {
       stations = data.stations;
     } else {
-      console.error("garbage.json 格式錯誤：", data);
       throw new Error("garbage.json 裡找不到 stations 陣列");
     }
 
