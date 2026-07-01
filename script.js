@@ -196,6 +196,7 @@ function recommendCatchableTruck(position) {
   }
 
   renderRecommendation(best);
+  showMessage("已找到推薦垃圾車。");
 
   L.marker([best.lat, best.lng])
     .addTo(map)
