@@ -27,3 +27,8 @@ button {
   height: 70vh;
   width: 100%;
 }
+#dataStatus {
+  margin: 8px 0 12px;
+  font-size: 14px;
+  color: #555;
+}
