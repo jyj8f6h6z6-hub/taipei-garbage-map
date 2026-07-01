@@ -1,4 +1,4 @@
-直接整份替換 `script.js`：
+script.js`：
 
 ```js
 const DATA_URL = "./garbage.json";
