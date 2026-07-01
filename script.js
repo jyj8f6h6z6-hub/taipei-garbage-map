@@ -197,10 +197,15 @@ function recommendCatchableTruck(position) {
   renderRecommendation(best);
   showMessage("已找到推薦垃圾車。");
 
-  L.marker([best.lat, best.lng])
+  const truckMarker = L.marker([best.lat, best.lng], {
+  zIndexOffset: 500,
+  })
     .addTo(map)
-    .bindPopup("🏃 推薦垃圾車")
-    .openPopup();
+    .bindPopup("🏃 推薦垃圾車");
+
+  if (userMarker) {
+    userMarker.bringToFront();
+  }
 
   map.setView([best.lat, best.lng], 17);
 }
