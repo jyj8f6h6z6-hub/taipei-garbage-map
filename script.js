@@ -268,6 +268,7 @@ function getStationAddress(station) {
 function getCarNo(station) {
   return (
     getField(station, [
+      "truck",
       "carNo",
       "car_no",
       "truckNo",
@@ -303,11 +304,27 @@ function getField(obj, keys) {
 function parseArrivalTimeToday(timeText, now) {
   if (!timeText || timeText === "未知") return null;
 
-  const match = String(timeText).match(/(\d{1,2})[:：](\d{2})/);
-  if (!match) return null;
+  const raw = String(timeText).trim();
 
-  const hour = Number(match[1]);
-  const minute = Number(match[2]);
+  let hour;
+  let minute;
+
+  // 支援 16:30、16：30
+  const colonMatch = raw.match(/^(\d{1,2})[:：](\d{2})$/);
+
+  // 支援 1630
+  const compactMatch = raw.match(/^(\d{3,4})$/);
+
+  if (colonMatch) {
+    hour = Number(colonMatch[1]);
+    minute = Number(colonMatch[2]);
+  } else if (compactMatch) {
+    const padded = raw.padStart(4, "0");
+    hour = Number(padded.slice(0, 2));
+    minute = Number(padded.slice(2, 4));
+  } else {
+    return null;
+  }
 
   if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
     return null;
