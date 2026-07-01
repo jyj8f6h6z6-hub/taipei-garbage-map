@@ -53,10 +53,16 @@ fetch("garbage.json")
     });
   })
   .catch(function (error) {
-    console.error("載入 garbage.json 失敗：", error);
+    console.error(error);
 
     var dataStatus = document.getElementById("dataStatus");
+
     if (dataStatus) {
-      dataStatus.textContent = "資料載入失敗，請稍後再試。";
+        dataStatus.innerHTML =
+            "錯誤：<br>" +
+            error.name + "<br>" +
+            error.message;
     }
-  });
+
+    alert(error.name + "\n" + error.message);
+});
