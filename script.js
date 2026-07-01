@@ -66,3 +66,41 @@ fetch("garbage.json")
 
     alert(error.name + "\n" + error.message);
 });
+var userMarker = null;
+
+var locateBtn = document.getElementById("locateBtn");
+
+if (locateBtn) {
+  locateBtn.addEventListener("click", function () {
+    if (!navigator.geolocation) {
+      alert("你的瀏覽器不支援定位功能。");
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      function (position) {
+        var userLat = position.coords.latitude;
+        var userLng = position.coords.longitude;
+
+        if (userMarker) {
+          map.removeLayer(userMarker);
+        }
+
+        userMarker = L.marker([userLat, userLng])
+          .addTo(map)
+          .bindPopup("你的位置")
+          .openPopup();
+
+        map.setView([userLat, userLng], 16);
+      },
+      function () {
+        alert("無法取得定位，請確認瀏覽器定位權限已開啟。");
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0
+      }
+    );
+  });
+}
