@@ -152,7 +152,6 @@ function showUserOnMap(position) {
 function recommendCatchableTruck(position) {
   const now = new Date();
   const candidates = [];
-  const usedRoutes = new Set();
 
   allStations.forEach((station) => {
     const lat = Number(station.lat);
@@ -165,7 +164,6 @@ function recommendCatchableTruck(position) {
 
     if (!arrivalDate || !leaveDate) return;
 
-    // 已經離開的站點不要
     if (leaveDate < now) return;
 
     const distanceM = getDistanceMeters(position.lat, position.lng, lat, lng);
@@ -196,17 +194,17 @@ function recommendCatchableTruck(position) {
     return a.distanceM - b.distanceM;
   });
 
-  const uniqueCandidates = [];
+  const bestRouteStations = new Map();
 
   candidates.forEach((candidate) => {
     const route = candidate.station.route || candidate.station.truck || "unknown";
 
-    if (usedRoutes.has(route)) return;
-
-    usedRoutes.add(route);
-    uniqueCandidates.push(candidate);
+    if (!bestRouteStations.has(route)) {
+      bestRouteStations.set(route, candidate);
+    }
   });
 
+  const uniqueCandidates = [...bestRouteStations.values()];
   const best = uniqueCandidates[0];
 
   if (!best) {
