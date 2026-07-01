@@ -152,6 +152,7 @@ function showUserOnMap(position) {
 function recommendCatchableTruck(position) {
   const now = new Date();
   const candidates = [];
+  const usedRoutes = new Set();
 
   allStations.forEach((station) => {
     const lat = Number(station.lat);
@@ -159,10 +160,13 @@ function recommendCatchableTruck(position) {
 
     if (!isValidLatLng(lat, lng)) return;
 
-    const arrivalTimeText = station.time;
-    const arrivalDate = parseArrivalTimeToday(arrivalTimeText, now);
+    const arrivalDate = parseArrivalTimeToday(station.time, now);
+    const leaveDate = parseArrivalTimeToday(station.leaveTime, now);
 
-    if (!arrivalDate) return;
+    if (!arrivalDate || !leaveDate) return;
+
+    // 已經離開的站點不要
+    if (leaveDate < now) return;
 
     const distanceM = getDistanceMeters(position.lat, position.lng, lat, lng);
     const walkingMinutes = Math.ceil(distanceM / WALKING_SPEED_M_PER_MIN);
@@ -180,25 +184,40 @@ function recommendCatchableTruck(position) {
       walkingMinutes,
       minutesUntilArrival,
       arrivalDate,
-      score: minutesUntilArrival,
+      leaveDate,
     });
   });
 
   candidates.sort((a, b) => {
-    if (a.score !== b.score) return a.score - b.score;
+    if (a.arrivalDate.getTime() !== b.arrivalDate.getTime()) {
+      return a.arrivalDate - b.arrivalDate;
+    }
+
     return a.distanceM - b.distanceM;
   });
 
-  const best = candidates[0];
+  const uniqueCandidates = [];
+
+  candidates.forEach((candidate) => {
+    const route = candidate.station.route || candidate.station.truck || "unknown";
+
+    if (usedRoutes.has(route)) return;
+
+    usedRoutes.add(route);
+    uniqueCandidates.push(candidate);
+  });
+
+  const best = uniqueCandidates[0];
 
   if (!best) {
     clearTruckMarker();
     renderRecommendation(null);
+    showMessage("目前沒有找到來得及趕上的垃圾車。");
     return;
   }
 
   renderRecommendation(best);
-  showMessage("已找到推薦垃圾車。");
+  showMessage("已找到推薦停靠點。");
 
   showTruckOnMap(best, position);
 }
