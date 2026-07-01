@@ -1,123 +1,377 @@
-var map = L.map("map").setView([25.0330, 121.5654], 14);
+const DATA_URL = "./garbage.json";
+const WALKING_SPEED_M_PER_MIN = 75;
+const CATCH_BUFFER_MIN = 3;
 
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-  attribution: "© OpenStreetMap"
-}).addTo(map);
+let map;
+let userMarker;
+let stationLayer;
+let allStations = [];
+let userPosition = null;
 
-var stations = [];
+init();
 
-fetch("garbage.json")
-  .then(function (response) {
-    return response.json();
-  })
-  .then(function (data) {
-    if (Array.isArray(data)) {
-      stations = data;
-    } else if (data && Array.isArray(data.stations)) {
-      stations = data.stations;
-    } else {
-      throw new Error("garbage.json 裡找不到 stations 陣列");
-    }
+async function init() {
+  initMap();
+  await loadGarbageData();
+  addLocateButton();
+}
 
-    var dataStatus = document.getElementById("dataStatus");
+function initMap() {
+  map = L.map("map").setView([25.033964, 121.564468], 13);
 
-    if (dataStatus) {
-      var meta = data.meta || {};
-      var total = meta.totalValid || stations.length;
-      var updatedAt = meta.updatedAt;
-      var updatedText = "未知";
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: "&copy; OpenStreetMap contributors",
+  }).addTo(map);
 
-      if (updatedAt) {
-        updatedText = new Date(updatedAt).toLocaleString("zh-TW", {
-          timeZone: "Asia/Taipei",
-          year: "numeric",
-          month: "2-digit",
-          day: "2-digit",
-          hour: "2-digit",
-          minute: "2-digit"
-        });
-      }
+  stationLayer = L.layerGroup().addTo(map);
+}
 
-      dataStatus.textContent =
-        "資料最後更新：" + updatedText + "｜共 " + total + " 個停靠點";
-    }
+async function loadGarbageData() {
+  try {
+    const res = await fetch(DATA_URL);
+    const data = await res.json();
 
-    stations.forEach(function (station) {
-      L.marker([station.lat, station.lng])
-        .addTo(map)
-        .bindPopup(
-          "<strong>" + station.name + "</strong><br>" +
-          station.address + "<br>" +
-          "垃圾車時間：" + station.time
-        );
-    });
-  })
-  .catch(function (error) {
-    console.error(error);
+    allStations = Array.isArray(data.stations) ? data.stations : [];
 
-    var dataStatus = document.getElementById("dataStatus");
+    renderMeta(data);
+    renderStations(allStations);
+  } catch (err) {
+    console.error("Failed to load garbage data:", err);
+    showMessage("資料載入失敗，請稍後再試。");
+  }
+}
 
-    if (dataStatus) {
-        dataStatus.innerHTML =
-            "錯誤：<br>" +
-            error.name + "<br>" +
-            error.message;
-    }
+function renderMeta(data) {
+  const info = document.getElementById("data-info");
+  if (!info) return;
 
-    alert(error.name + "\n" + error.message);
-});
-var userMarker = null;
+  const updatedAt = data?.meta?.updatedAt || "未知";
+  const totalValid = data?.meta?.totalValid || allStations.length;
 
-var locateBtn = document.getElementById("locateBtn");
+  info.innerHTML = `
+    資料最後更新：${formatDateTime(updatedAt)}<br>
+    共 ${totalValid} 個停靠點
+  `;
+}
 
-if (locateBtn) {
-  locateBtn.addEventListener("click", function () {
-    alert("已按下使用我的位置");
+function renderStations(stations) {
+  stationLayer.clearLayers();
 
-    if (!navigator.geolocation) {
-      alert("你的瀏覽器不支援定位功能。");
-      return;
-    }
+  stations.forEach((station) => {
+    const lat = Number(getField(station, ["lat", "latitude", "緯度"]));
+    const lng = Number(getField(station, ["lng", "lon", "longitude", "經度"]));
 
-    navigator.geolocation.getCurrentPosition(
-      function (position) {
-        alert("定位成功");
+    if (!isValidLatLng(lat, lng)) return;
 
-        var userLat = position.coords.latitude;
-        var userLng = position.coords.longitude;
+    const address = getStationAddress(station);
+    const carNo = getCarNo(station);
+    const arrivalTime = getArrivalTime(station);
 
-        if (userMarker) {
-          map.removeLayer(userMarker);
-        }
-
-        userMarker = L.marker([userLat, userLng])
-          .addTo(map)
-          .bindPopup("你的位置")
-          .openPopup();
-
-        map.setView([userLat, userLng], 16);
-      },
-      function (error) {
-        var message = "定位失敗：";
-
-        if (error.code === 1) {
-          message += "權限被拒絕，請到 iPhone 設定允許 Safari 使用定位。";
-        } else if (error.code === 2) {
-          message += "目前無法取得位置，請確認 GPS 或網路連線。";
-        } else if (error.code === 3) {
-          message += "定位逾時，請到戶外或稍後再試。";
-        } else {
-          message += error.message;
-        }
-        alert(message);
-      }
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0
-      }
-    );
+    L.marker([lat, lng])
+      .bindPopup(`
+        <strong>${escapeHtml(address)}</strong><br>
+        🚛 車號：${escapeHtml(carNo)}<br>
+        🕒 抵達時間：${escapeHtml(arrivalTime)}
+      `)
+      .addTo(stationLayer);
   });
-} else {
-  alert("找不到 locateBtn 按鈕");
+}
+
+function addLocateButton() {
+  const btn = document.getElementById("locate-btn");
+  if (!btn) return;
+
+  btn.addEventListener("click", () => {
+    locateUser();
+  });
+}
+
+function locateUser() {
+  if (!navigator.geolocation) {
+    showMessage("此瀏覽器不支援定位功能。");
+    return;
+  }
+
+  showMessage("正在取得你的位置...");
+
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      userPosition = {
+        lat: pos.coords.latitude,
+        lng: pos.coords.longitude,
+      };
+
+      showUserOnMap(userPosition);
+      recommendCatchableTruck(userPosition);
+    },
+    (err) => {
+      console.error(err);
+      showMessage("無法取得定位，請確認瀏覽器定位權限已開啟。");
+    },
+    {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 0,
+    }
+  );
+}
+
+function showUserOnMap(position) {
+  if (userMarker) {
+    map.removeLayer(userMarker);
+  }
+
+  userMarker = L.marker([position.lat, position.lng])
+    .addTo(map)
+    .bindPopup("你的位置")
+    .openPopup();
+
+  map.setView([position.lat, position.lng], 16);
+}
+
+function recommendCatchableTruck(position) {
+  const now = new Date();
+  const candidates = [];
+
+  allStations.forEach((station) => {
+    const lat = Number(getField(station, ["lat", "latitude", "緯度"]));
+    const lng = Number(getField(station, ["lng", "lon", "longitude", "經度"]));
+
+    if (!isValidLatLng(lat, lng)) return;
+
+    const arrivalTimeText = getArrivalTime(station);
+    const arrivalDate = parseArrivalTimeToday(arrivalTimeText, now);
+
+    if (!arrivalDate) return;
+
+    const distanceM = getDistanceMeters(
+      position.lat,
+      position.lng,
+      lat,
+      lng
+    );
+
+    const walkingMinutes = Math.ceil(distanceM / WALKING_SPEED_M_PER_MIN);
+    const minutesUntilArrival = Math.floor((arrivalDate - now) / 60000);
+
+    const canCatch =
+      minutesUntilArrival >= walkingMinutes + CATCH_BUFFER_MIN;
+
+    if (!canCatch) return;
+
+    candidates.push({
+      station,
+      lat,
+      lng,
+      distanceM,
+      walkingMinutes,
+      minutesUntilArrival,
+      arrivalDate,
+      score: minutesUntilArrival,
+    });
+  });
+
+  candidates.sort((a, b) => {
+    if (a.score !== b.score) return a.score - b.score;
+    return a.distanceM - b.distanceM;
+  });
+
+  const best = candidates[0];
+
+  if (!best) {
+    renderRecommendation(null);
+    return;
+  }
+
+  renderRecommendation(best);
+
+  L.marker([best.lat, best.lng])
+    .addTo(map)
+    .bindPopup("🏃 推薦垃圾車")
+    .openPopup();
+
+  map.setView([best.lat, best.lng], 17);
+}
+
+function renderRecommendation(result) {
+  let box = document.getElementById("recommendation");
+
+  if (!box) {
+    box = document.createElement("div");
+    box.id = "recommendation";
+    box.style.padding = "12px";
+    box.style.margin = "12px";
+    box.style.border = "1px solid #ddd";
+    box.style.borderRadius = "8px";
+    box.style.background = "#fff";
+
+    const mapEl = document.getElementById("map");
+    if (mapEl && mapEl.parentNode) {
+      mapEl.parentNode.insertBefore(box, mapEl);
+    } else {
+      document.body.prepend(box);
+    }
+  }
+
+  if (!result) {
+    box.innerHTML = `
+      <h2>🏃 推薦垃圾車</h2>
+      <p>目前附近沒有找到來得及趕上的垃圾車。</p>
+    `;
+    return;
+  }
+
+  const station = result.station;
+  const address = getStationAddress(station);
+  const carNo = getCarNo(station);
+  const arrivalTime = getArrivalTime(station);
+
+  const navUrl =
+    `https://www.google.com/maps/dir/?api=1` +
+    `&destination=${result.lat},${result.lng}` +
+    `&travelmode=walking`;
+
+  box.innerHTML = `
+    <h2>🏃 推薦垃圾車</h2>
+    <p>📍 地址：${escapeHtml(address)}</p>
+    <p>🚛 車號：${escapeHtml(carNo)}</p>
+    <p>🕒 抵達時間：${escapeHtml(arrivalTime)}</p>
+    <p>📏 距離：約 ${Math.round(result.distanceM)} 公尺</p>
+    <p>🚶 步行時間：約 ${result.walkingMinutes} 分鐘</p>
+    <p>
+      <a href="${navUrl}" target="_blank" rel="noopener noreferrer">
+        🧭 Google Maps 導航
+      </a>
+    </p>
+  `;
+}
+
+function getStationAddress(station) {
+  return (
+    getField(station, [
+      "address",
+      "location",
+      "地點",
+      "停靠地點",
+      "清運點",
+      "addr",
+      "地址",
+    ]) || "未知地點"
+  );
+}
+
+function getCarNo(station) {
+  return (
+    getField(station, [
+      "carNo",
+      "car_no",
+      "truckNo",
+      "truck_no",
+      "車號",
+      "車牌",
+    ]) || "未知"
+  );
+}
+
+function getArrivalTime(station) {
+  return (
+    getField(station, [
+      "arrivalTime",
+      "arrival_time",
+      "time",
+      "抵達時間",
+      "到達時間",
+      "清運時間",
+    ]) || "未知"
+  );
+}
+
+function getField(obj, keys) {
+  for (const key of keys) {
+    if (obj[key] !== undefined && obj[key] !== null && obj[key] !== "") {
+      return obj[key];
+    }
+  }
+  return "";
+}
+
+function parseArrivalTimeToday(timeText, now) {
+  if (!timeText || timeText === "未知") return null;
+
+  const match = String(timeText).match(/(\d{1,2})[:：](\d{2})/);
+  if (!match) return null;
+
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+    return null;
+  }
+
+  const arrival = new Date(now);
+  arrival.setHours(hour, minute, 0, 0);
+
+  return arrival;
+}
+
+function getDistanceMeters(lat1, lng1, lat2, lng2) {
+  const R = 6371000;
+  const toRad = (deg) => (deg * Math.PI) / 180;
+
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) *
+      Math.cos(toRad(lat2)) *
+      Math.sin(dLng / 2) ** 2;
+
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function isValidLatLng(lat, lng) {
+  return (
+    Number.isFinite(lat) &&
+    Number.isFinite(lng) &&
+    lat >= -90 &&
+    lat <= 90 &&
+    lng >= -180 &&
+    lng <= 180
+  );
+}
+
+function formatDateTime(value) {
+  if (!value) return "未知";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+
+  return date.toLocaleString("zh-TW", {
+    timeZone: "Asia/Taipei",
+  });
+}
+
+function showMessage(message) {
+  let box = document.getElementById("message");
+
+  if (!box) {
+    box = document.createElement("div");
+    box.id = "message";
+    box.style.padding = "8px 12px";
+    box.style.margin = "12px";
+    document.body.prepend(box);
+  }
+
+  box.textContent = message;
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }
