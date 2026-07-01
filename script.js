@@ -3,7 +3,8 @@ const WALKING_SPEED_M_PER_MIN = 75;
 const CATCH_BUFFER_MIN = 3;
 
 let map;
-let userMarker;
+let userMarker = null;
+let truckMarker = null;
 let stationLayer;
 let allStations = [];
 let userPosition = null;
@@ -40,7 +41,7 @@ async function loadGarbageData() {
     allStations = Array.isArray(data.stations) ? data.stations : [];
 
     renderMeta(data);
-    //renderStations(allStations);
+    // renderStations(allStations);
 
     showMessage(`資料載入完成，共 ${allStations.length} 個停靠點。`);
   } catch (err) {
@@ -113,9 +114,9 @@ function locateUser() {
         lat: pos.coords.latitude,
         lng: pos.coords.longitude,
       };
-      
+
       showMessage("已取得你的位置，正在推薦垃圾車...");
-      
+
       showUserOnMap(userPosition);
       recommendCatchableTruck(userPosition);
     },
@@ -138,10 +139,12 @@ function showUserOnMap(position) {
 
   userMarker = L.marker([position.lat, position.lng], {
     icon: createUserIcon(),
+    zIndexOffset: 1000,
   })
     .addTo(map)
-    .bindPopup("你的位置")
-    .openPopup();
+    .bindPopup("🧍 你的位置");
+
+  userMarker.bringToFront();
 
   map.setView([position.lat, position.lng], 16);
 }
@@ -162,7 +165,6 @@ function recommendCatchableTruck(position) {
     if (!arrivalDate) return;
 
     const distanceM = getDistanceMeters(position.lat, position.lng, lat, lng);
-
     const walkingMinutes = Math.ceil(distanceM / WALKING_SPEED_M_PER_MIN);
     const minutesUntilArrival = Math.floor((arrivalDate - now) / 60000);
 
@@ -190,6 +192,7 @@ function recommendCatchableTruck(position) {
   const best = candidates[0];
 
   if (!best) {
+    clearTruckMarker();
     renderRecommendation(null);
     return;
   }
@@ -197,17 +200,39 @@ function recommendCatchableTruck(position) {
   renderRecommendation(best);
   showMessage("已找到推薦垃圾車。");
 
-  const truckMarker = L.marker([best.lat, best.lng], {
-  zIndexOffset: 500,
+  showTruckOnMap(best, position);
+}
+
+function showTruckOnMap(best, position) {
+  clearTruckMarker();
+
+  truckMarker = L.marker([best.lat, best.lng], {
+    icon: createTruckIcon(),
+    zIndexOffset: 500,
   })
     .addTo(map)
-    .bindPopup("🏃 推薦垃圾車");
+    .bindPopup("🚛 推薦停靠點");
 
   if (userMarker) {
     userMarker.bringToFront();
   }
 
-  map.setView([best.lat, best.lng], 17);
+  const bounds = L.latLngBounds([
+    [position.lat, position.lng],
+    [best.lat, best.lng],
+  ]);
+
+  map.fitBounds(bounds, {
+    padding: [60, 60],
+    maxZoom: 17,
+  });
+}
+
+function clearTruckMarker() {
+  if (truckMarker) {
+    map.removeLayer(truckMarker);
+    truckMarker = null;
+  }
 }
 
 function renderRecommendation(result) {
@@ -232,7 +257,7 @@ function renderRecommendation(result) {
 
   if (!result) {
     box.innerHTML = `
-      <h2>🏃 推薦垃圾車</h2>
+      <h2>🚛 推薦停靠點</h2>
       <p>目前附近沒有找到來得及趕上的垃圾車。</p>
     `;
     return;
@@ -249,7 +274,7 @@ function renderRecommendation(result) {
     `&travelmode=walking`;
 
   box.innerHTML = `
-    <h2>🏃 推薦垃圾車</h2>
+    <h2>🚛 推薦停靠點</h2>
     <p>📍 地址：${escapeHtml(address)}</p>
     <p>🚛 車號：${escapeHtml(truck)}</p>
     <p>🕒 抵達時間：${escapeHtml(arrivalTime)}</p>
@@ -369,5 +394,15 @@ function createUserIcon() {
     iconSize: [32, 32],
     iconAnchor: [16, 32],
     popupAnchor: [0, -32],
+  });
+}
+
+function createTruckIcon() {
+  return L.divIcon({
+    className: "truck-cartoon-icon",
+    html: "🚛",
+    iconSize: [36, 36],
+    iconAnchor: [18, 36],
+    popupAnchor: [0, -36],
   });
 }
