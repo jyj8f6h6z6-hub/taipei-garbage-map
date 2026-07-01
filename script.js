@@ -33,15 +33,22 @@ function initMap() {
 async function loadGarbageData() {
   try {
     const res = await fetch(DATA_URL);
+
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}`);
+    }
+
     const data = await res.json();
 
     allStations = Array.isArray(data.stations) ? data.stations : [];
 
     renderMeta(data);
     renderStations(allStations);
+
+    showMessage(`資料載入完成，共 ${allStations.length} 個停靠點。`);
   } catch (err) {
     console.error("Failed to load garbage data:", err);
-    showMessage("資料載入失敗，請稍後再試。");
+    showMessage("資料載入失敗，請確認 garbage.json 是否存在，或是否使用 Live Server 開啟。");
   }
 }
 
