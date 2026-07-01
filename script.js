@@ -72,6 +72,8 @@ var locateBtn = document.getElementById("locateBtn");
 
 if (locateBtn) {
   locateBtn.addEventListener("click", function () {
+    alert("已按下使用我的位置");
+
     if (!navigator.geolocation) {
       alert("你的瀏覽器不支援定位功能。");
       return;
@@ -79,6 +81,8 @@ if (locateBtn) {
 
     navigator.geolocation.getCurrentPosition(
       function (position) {
+        alert("定位成功");
+
         var userLat = position.coords.latitude;
         var userLng = position.coords.longitude;
 
@@ -93,8 +97,8 @@ if (locateBtn) {
 
         map.setView([userLat, userLng], 16);
       },
-      function () {
-        alert("無法取得定位，請確認瀏覽器定位權限已開啟。");
+      function (error) {
+        alert("定位失敗：" + error.message);
       },
       {
         enableHighAccuracy: true,
@@ -103,4 +107,6 @@ if (locateBtn) {
       }
     );
   });
+} else {
+  alert("找不到 locateBtn 按鈕");
 }
