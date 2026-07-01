@@ -40,7 +40,7 @@ async function loadGarbageData() {
     allStations = Array.isArray(data.stations) ? data.stations : [];
 
     renderMeta(data);
-    renderStations(allStations);
+    //renderStations(allStations);
 
     showMessage(`資料載入完成，共 ${allStations.length} 個停靠點。`);
   } catch (err) {
@@ -136,7 +136,9 @@ function showUserOnMap(position) {
     map.removeLayer(userMarker);
   }
 
-  userMarker = L.marker([position.lat, position.lng])
+  userMarker = L.marker([position.lat, position.lng], {
+    icon: createUserIcon(),
+  })
     .addTo(map)
     .bindPopup("你的位置")
     .openPopup();
@@ -353,4 +355,14 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+function createUserIcon() {
+  return L.divIcon({
+    className: "user-cartoon-icon",
+    html: "🧍",
+    iconSize: [32, 32],
+    iconAnchor: [16, 32],
+    popupAnchor: [0, -32],
+  });
 }
