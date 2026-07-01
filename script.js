@@ -1,6 +1,3 @@
-script.js`：
-
-```js
 const DATA_URL = "./garbage.json";
 const WALKING_SPEED_M_PER_MIN = 75;
 const CATCH_BUFFER_MIN = 3;
