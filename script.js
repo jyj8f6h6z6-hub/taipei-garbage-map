@@ -79,7 +79,11 @@ function renderStations(stations) {
 }
 
 function addLocateButton() {
-  const btn = document.getElementById("locate-btn");
+  const btn =
+  document.getElementById("locate-btn") ||
+  Array.from(document.querySelectorAll("button")).find((button) =>
+    button.textContent.includes("使用我的位置")
+  );
   if (!btn) return;
 
   btn.addEventListener("click", () => {
