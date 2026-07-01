@@ -98,8 +98,19 @@ if (locateBtn) {
         map.setView([userLat, userLng], 16);
       },
       function (error) {
-        alert("定位失敗：" + error.message);
-      },
+        var message = "定位失敗：";
+
+        if (error.code === 1) {
+          message += "權限被拒絕，請到 iPhone 設定允許 Safari 使用定位。";
+        } else if (error.code === 2) {
+          message += "目前無法取得位置，請確認 GPS 或網路連線。";
+        } else if (error.code === 3) {
+          message += "定位逾時，請到戶外或稍後再試。";
+        } else {
+          message += error.message;
+        }
+        alert(message);
+      }
       {
         enableHighAccuracy: true,
         timeout: 10000,
