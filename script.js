@@ -1,23 +1,26 @@
+var stations = [];
+
 fetch("garbage.json")
-  .then(response => response.json())
-  .then(data => {
+  .then(function (response) {
+    return response.json();
+  })
+  .then(function (data) {
     if (Array.isArray(data)) {
       stations = data;
-    } else if (Array.isArray(data.stations)) {
+    } else if (data && Array.isArray(data.stations)) {
       stations = data.stations;
     } else {
       console.error("garbage.json 格式錯誤：", data);
       throw new Error("garbage.json 裡找不到 stations 陣列");
     }
 
-    const dataStatus = document.getElementById("dataStatus");
+    var dataStatus = document.getElementById("dataStatus");
 
     if (dataStatus) {
-      const meta = data.meta || {};
-      const total = meta.totalValid || stations.length;
-      const updatedAt = meta.updatedAt;
-
-      let updatedText = "未知";
+      var meta = data.meta || {};
+      var total = meta.totalValid || stations.length;
+      var updatedAt = meta.updatedAt;
+      var updatedText = "未知";
 
       if (updatedAt) {
         updatedText = new Date(updatedAt).toLocaleString("zh-TW", {
@@ -30,23 +33,24 @@ fetch("garbage.json")
         });
       }
 
-      dataStatus.textContent = `資料最後更新：${updatedText}｜共 ${total} 個停靠點`;
+      dataStatus.textContent =
+        "資料最後更新：" + updatedText + "｜共 " + total + " 個停靠點";
     }
 
-    stations.forEach(station => {
+    stations.forEach(function (station) {
       L.marker([station.lat, station.lng])
         .addTo(map)
-        .bindPopup(`
-          <strong>${station.name}</strong><br>
-          ${station.address}<br>
-          垃圾車時間：${station.time}
-        `);
+        .bindPopup(
+          "<strong>" + station.name + "</strong><br>" +
+          station.address + "<br>" +
+          "垃圾車時間：" + station.time
+        );
     });
   })
-  .catch(error => {
+  .catch(function (error) {
     console.error("載入 garbage.json 失敗：", error);
 
-    const dataStatus = document.getElementById("dataStatus");
+    var dataStatus = document.getElementById("dataStatus");
     if (dataStatus) {
       dataStatus.textContent = "資料載入失敗，請稍後再試。";
     }
