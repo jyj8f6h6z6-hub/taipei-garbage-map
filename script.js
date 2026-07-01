@@ -1,3 +1,6 @@
+直接整份替換 `script.js`：
+
+```js
 const DATA_URL = "./garbage.json";
 const WALKING_SPEED_M_PER_MIN = 75;
 const CATCH_BUFFER_MIN = 3;
@@ -59,19 +62,19 @@ function renderStations(stations) {
   stationLayer.clearLayers();
 
   stations.forEach((station) => {
-    const lat = Number(getField(station, ["lat", "latitude", "緯度"]));
-    const lng = Number(getField(station, ["lng", "lon", "longitude", "經度"]));
+    const lat = Number(station.lat);
+    const lng = Number(station.lng);
 
     if (!isValidLatLng(lat, lng)) return;
 
-    const address = getStationAddress(station);
-    const carNo = getCarNo(station);
-    const arrivalTime = getArrivalTime(station);
+    const address = station.address || "未知地點";
+    const truck = station.truck || "未知";
+    const arrivalTime = station.time || "未知";
 
     L.marker([lat, lng])
       .bindPopup(`
         <strong>${escapeHtml(address)}</strong><br>
-        🚛 車號：${escapeHtml(carNo)}<br>
+        🚛 車號：${escapeHtml(truck)}<br>
         🕒 抵達時間：${escapeHtml(arrivalTime)}
       `)
       .addTo(stationLayer);
@@ -80,10 +83,11 @@ function renderStations(stations) {
 
 function addLocateButton() {
   const btn =
-  document.getElementById("locate-btn") ||
-  Array.from(document.querySelectorAll("button")).find((button) =>
-    button.textContent.includes("使用我的位置")
-  );
+    document.getElementById("locate-btn") ||
+    Array.from(document.querySelectorAll("button")).find((button) =>
+      button.textContent.includes("使用我的位置")
+    );
+
   if (!btn) return;
 
   btn.addEventListener("click", () => {
@@ -139,28 +143,22 @@ function recommendCatchableTruck(position) {
   const candidates = [];
 
   allStations.forEach((station) => {
-    const lat = Number(getField(station, ["lat", "latitude", "緯度"]));
-    const lng = Number(getField(station, ["lng", "lon", "longitude", "經度"]));
+    const lat = Number(station.lat);
+    const lng = Number(station.lng);
 
     if (!isValidLatLng(lat, lng)) return;
 
-    const arrivalTimeText = getArrivalTime(station);
+    const arrivalTimeText = station.time;
     const arrivalDate = parseArrivalTimeToday(arrivalTimeText, now);
 
     if (!arrivalDate) return;
 
-    const distanceM = getDistanceMeters(
-      position.lat,
-      position.lng,
-      lat,
-      lng
-    );
+    const distanceM = getDistanceMeters(position.lat, position.lng, lat, lng);
 
     const walkingMinutes = Math.ceil(distanceM / WALKING_SPEED_M_PER_MIN);
     const minutesUntilArrival = Math.floor((arrivalDate - now) / 60000);
 
-    const canCatch =
-      minutesUntilArrival >= walkingMinutes + CATCH_BUFFER_MIN;
+    const canCatch = minutesUntilArrival >= walkingMinutes + CATCH_BUFFER_MIN;
 
     if (!canCatch) return;
 
@@ -227,9 +225,9 @@ function renderRecommendation(result) {
   }
 
   const station = result.station;
-  const address = getStationAddress(station);
-  const carNo = getCarNo(station);
-  const arrivalTime = getArrivalTime(station);
+  const address = station.address || "未知地點";
+  const truck = station.truck || "未知";
+  const arrivalTime = station.time || "未知";
 
   const navUrl =
     `https://www.google.com/maps/dir/?api=1` +
@@ -239,7 +237,7 @@ function renderRecommendation(result) {
   box.innerHTML = `
     <h2>🏃 推薦垃圾車</h2>
     <p>📍 地址：${escapeHtml(address)}</p>
-    <p>🚛 車號：${escapeHtml(carNo)}</p>
+    <p>🚛 車號：${escapeHtml(truck)}</p>
     <p>🕒 抵達時間：${escapeHtml(arrivalTime)}</p>
     <p>📏 距離：約 ${Math.round(result.distanceM)} 公尺</p>
     <p>🚶 步行時間：約 ${result.walkingMinutes} 分鐘</p>
@@ -251,82 +249,35 @@ function renderRecommendation(result) {
   `;
 }
 
-function getStationAddress(station) {
-  return (
-    getField(station, [
-      "address",
-      "location",
-      "地點",
-      "停靠地點",
-      "清運點",
-      "addr",
-      "地址",
-    ]) || "未知地點"
-  );
-}
-
-function getCarNo(station) {
-  return (
-    getField(station, [
-      "truck",
-      "carNo",
-      "car_no",
-      "truckNo",
-      "truck_no",
-      "車號",
-      "車牌",
-    ]) || "未知"
-  );
-}
-
-function getArrivalTime(station) {
-  return (
-    getField(station, [
-      "arrivalTime",
-      "arrival_time",
-      "time",
-      "抵達時間",
-      "到達時間",
-      "清運時間",
-    ]) || "未知"
-  );
-}
-
-function getField(obj, keys) {
-  for (const key of keys) {
-    if (obj[key] !== undefined && obj[key] !== null && obj[key] !== "") {
-      return obj[key];
-    }
-  }
-  return "";
-}
-
-function parseArrivalTimeToday(timeText, now) {
-  if (!timeText || timeText === "未知") return null;
+function parseArrivalTimeToday(timeText, now = new Date()) {
+  if (!timeText) return null;
 
   const raw = String(timeText).trim();
 
   let hour;
   let minute;
 
-  // 支援 16:30、16：30
   const colonMatch = raw.match(/^(\d{1,2})[:：](\d{2})$/);
-
-  // 支援 1630
-  const compactMatch = raw.match(/^(\d{3,4})$/);
+  const compactMatch = raw.match(/^(\d{4})$/);
 
   if (colonMatch) {
     hour = Number(colonMatch[1]);
     minute = Number(colonMatch[2]);
   } else if (compactMatch) {
-    const padded = raw.padStart(4, "0");
-    hour = Number(padded.slice(0, 2));
-    minute = Number(padded.slice(2, 4));
+    hour = Number(raw.slice(0, 2));
+    minute = Number(raw.slice(2, 4));
   } else {
     return null;
   }
 
-  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+  if (
+    Number.isNaN(hour) ||
+    Number.isNaN(minute) ||
+    hour < 0 ||
+    hour > 23 ||
+    minute < 0 ||
+    minute > 59
+  ) {
     return null;
   }
 
