@@ -51,7 +51,7 @@ async function loadGarbageData() {
 }
 
 function renderMeta(data) {
-  const info = document.getElementById("data-info");
+  const info = document.getElementById("dataStatus");
   if (!info) return;
 
   const updatedAt = data?.meta?.updatedAt || "未知";
@@ -87,12 +87,7 @@ function renderStations(stations) {
 }
 
 function addLocateButton() {
-  const btn =
-    document.getElementById("locate-btn") ||
-    Array.from(document.querySelectorAll("button")).find((button) =>
-      button.textContent.includes("使用我的位置")
-    );
-
+  const btn = document.getElementById("locateBtn");
   if (!btn) return;
 
   btn.addEventListener("click", () => {
@@ -144,7 +139,9 @@ function showUserOnMap(position) {
     .addTo(map)
     .bindPopup("🧍 你的位置");
 
-  userMarker.bringToFront();
+  if (userMarker.setZIndexOffset) {
+  userMarker.setZIndexOffset(1000);
+  }
 
   map.setView([position.lat, position.lng], 16);
 }
@@ -230,8 +227,8 @@ function showTruckOnMap(best, position) {
     .addTo(map)
     .bindPopup("🚛 推薦停靠點");
 
-  if (userMarker) {
-    userMarker.bringToFront();
+  if (userMarker && userMarker.setZIndexOffset) {
+  userMarker.setZIndexOffset(1000);
   }
 
   const bounds = L.latLngBounds([
@@ -253,7 +250,7 @@ function clearTruckMarker() {
 }
 
 function renderRecommendation(result) {
-  let box = document.getElementById("recommendation");
+  let box = document.getElementById("result");
 
   if (!box) {
     box = document.createElement("div");
