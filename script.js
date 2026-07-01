@@ -116,7 +116,9 @@ function locateUser() {
         lat: pos.coords.latitude,
         lng: pos.coords.longitude,
       };
-
+      
+      showMessage("已取得你的位置，正在推薦垃圾車...");
+      
       showUserOnMap(userPosition);
       recommendCatchableTruck(userPosition);
     },
