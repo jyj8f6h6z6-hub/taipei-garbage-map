@@ -408,8 +408,8 @@ function createUserIcon() {
   return L.divIcon({
     className: "user-cartoon-icon",
     html: "🧍",
-    iconSize: [32, 32],
-    iconAnchor: [16, 32],
+    iconSize: [60, 60],
+    iconAnchor: [30, 30],
     popupAnchor: [0, -32],
   });
 }
