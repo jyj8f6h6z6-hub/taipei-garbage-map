@@ -141,7 +141,7 @@ function showUserOnMap(position) {
     zIndexOffset: 1000,
   })
     .addTo(map)
-    .bindPopup("🧍 你的位置");
+    .bindPopup("📍 你的位置");
 
   if (userMarker.setZIndexOffset) {
   userMarker.setZIndexOffset(1000);
@@ -407,10 +407,10 @@ function escapeHtml(value) {
 function createUserIcon() {
   return L.divIcon({
     className: "user-cartoon-icon",
-    html: "🧍",
-    iconSize: [60, 60],
-    iconAnchor: [30, 30],
-    popupAnchor: [0, -32],
+    html: "📍",
+    iconSize: [120, 120],
+    iconAnchor: [60, 60],
+    popupAnchor: [0, -60],
   });
 }
 
