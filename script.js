@@ -4,7 +4,7 @@ const CATCH_BUFFER_MIN = 3;
 
 let map;
 let userMarker = null;
-let truckMarker = null;
+let truckMarkers = [];
 let stationLayer;
 let allStations = [];
 let userPosition = null;
@@ -208,36 +208,42 @@ function recommendCatchableTruck(position) {
   const uniqueCandidates = [...bestRouteStations.values()];
   const best = uniqueCandidates[0];
 
-  if (!best) {
-    clearTruckMarker();
-    renderRecommendation(null);
-    showMessage("目前沒有找到來得及趕上的垃圾車。");
-    return;
-  }
+  const results = candidates.slice(0, 5);
 
-  renderRecommendation(best);
-  showMessage("已找到推薦停靠點。");
-
-  showTruckOnMap(best, position);
+if (results.length === 0) {
+  clearTruckMarkers();
+  renderRecommendation([]);
+  showMessage("目前沒有找到 2 分鐘後可抵達的垃圾車。");
+  return;
 }
 
-function showTruckOnMap(best, position) {
-  clearTruckMarker();
+renderRecommendation(results);
+showMessage(`已找到 ${results.length} 個推薦停靠點。`);
 
-  truckMarker = L.marker([best.lat, best.lng], {
-  zIndexOffset: 500,
-})
-    .addTo(map)
-    .bindPopup("🚛 推薦停靠點");
+showTrucksOnMap(results, position);
+}
+
+function showTrucksOnMap(results, position) {
+  clearTruckMarkers();
+
+  const points = [[position.lat, position.lng]];
+
+  results.forEach((item, index) => {
+    const marker = L.marker([item.lat, item.lng], {
+      zIndexOffset: 500,
+    })
+      .addTo(map)
+      .bindPopup(`🚛 推薦停靠點 ${index + 1}`);
+
+    truckMarkers.push(marker);
+    points.push([item.lat, item.lng]);
+  });
 
   if (userMarker && userMarker.setZIndexOffset) {
-  userMarker.setZIndexOffset(1000);
+    userMarker.setZIndexOffset(1000);
   }
 
-  const bounds = L.latLngBounds([
-    [position.lat, position.lng],
-    [best.lat, best.lng],
-  ]);
+  const bounds = L.latLngBounds(points);
 
   map.fitBounds(bounds, {
     padding: [60, 60],
@@ -245,63 +251,55 @@ function showTruckOnMap(best, position) {
   });
 }
 
-function clearTruckMarker() {
-  if (truckMarker) {
-    map.removeLayer(truckMarker);
-    truckMarker = null;
-  }
+function clearTruckMarkers() {
+  truckMarkers.forEach((marker) => {
+    map.removeLayer(marker);
+  });
+
+  truckMarkers = [];
 }
 
-function renderRecommendation(result) {
+function renderRecommendation(results) {
   let box = document.getElementById("result");
+  if (!box) return;
 
-  if (!box) {
-    box = document.createElement("div");
-    box.id = "recommendation";
-    box.style.padding = "12px";
-    box.style.margin = "12px";
-    box.style.border = "1px solid #ddd";
-    box.style.borderRadius = "8px";
-    box.style.background = "#fff";
-
-    const mapEl = document.getElementById("map");
-    if (mapEl && mapEl.parentNode) {
-      mapEl.parentNode.insertBefore(box, mapEl);
-    } else {
-      document.body.prepend(box);
-    }
-  }
-
-  if (!result) {
+  if (!results || results.length === 0) {
     box.innerHTML = `
-      <h2>🚛 推薦停靠點</h2>
-      <p>目前附近沒有找到來得及趕上的垃圾車。</p>
+      <h2>🚛 最近五個垃圾車</h2>
+      <p>目前附近沒有找到 2 分鐘後可抵達的垃圾車。</p>
     `;
     return;
   }
 
-  const station = result.station;
-  const address = station.address || "未知地點";
-  const truck = station.truck || "未知";
-  const arrivalTime = station.time || "未知";
-
-  const navUrl =
-    `https://www.google.com/maps/dir/?api=1` +
-    `&destination=${result.lat},${result.lng}` +
-    `&travelmode=walking`;
-
   box.innerHTML = `
-    <h2>🚛 推薦停靠點</h2>
-    <p>💧 地址：${escapeHtml(address)}</p>
-    <p>🚛 車號：${escapeHtml(truck)}</p>
-    <p>🕒 抵達時間：${escapeHtml(arrivalTime)}</p>
-    <p>📏 距離：約 ${Math.round(result.distanceM)} 公尺</p>
-    <p>🚶 步行時間：約 ${result.walkingMinutes} 分鐘</p>
-    <p>
-      <a href="${navUrl}" target="_blank" rel="noopener noreferrer">
-        🧭 Google Maps 導航
-      </a>
-    </p>
+    <h2>🚛 最近五個垃圾車</h2>
+    ${results.map((result, index) => {
+      const station = result.station;
+      const address = station.address || "未知地點";
+      const truck = station.truck || "未知";
+      const arrivalTime = station.time || "未知";
+
+      const navUrl =
+        `https://www.google.com/maps/dir/?api=1` +
+        `&destination=${result.lat},${result.lng}` +
+        `&travelmode=walking`;
+
+      return `
+        <div class="recommend-card">
+          <h3>#${index + 1}</h3>
+          <p>💧 地址：${escapeHtml(address)}</p>
+          <p>🚛 車號：${escapeHtml(truck)}</p>
+          <p>🕒 抵達時間：${escapeHtml(arrivalTime)}</p>
+          <p>📏 距離：約 ${Math.round(result.distanceM)} 公尺</p>
+          <p>🚶 步行時間：約 ${result.walkingMinutes} 分鐘</p>
+          <p>
+            <a href="${navUrl}" target="_blank" rel="noopener noreferrer">
+              🧭 Google Maps 導航
+            </a>
+          </p>
+        </div>
+      `;
+    }).join("")}
   `;
 }
 

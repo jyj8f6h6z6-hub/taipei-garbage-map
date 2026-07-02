@@ -89,3 +89,11 @@ button:hover {
     height: 55vh;
   }
 }
+
+.recommend-card {
+  padding: 12px;
+  margin-top: 12px;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  background: #fff;
+}
