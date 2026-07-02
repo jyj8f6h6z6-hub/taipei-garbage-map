@@ -408,7 +408,7 @@ function createUserIcon() {
   return L.divIcon({
     className: "user-cartoon-icon",
     html: "📍",
-    iconSize: [120, 120],
+    iconSize: [60, 60],
     iconAnchor: [60, 60],
     popupAnchor: [0, -60],
   });
