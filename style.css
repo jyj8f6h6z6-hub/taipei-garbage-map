@@ -38,9 +38,20 @@ h1 {
 }
 
 button {
-  padding: 12px 18px;
+  width: 100%;
+  padding: 14px 18px;
   font-size: 16px;
+  font-weight: 700;
   cursor: pointer;
+  border: none;
+  border-radius: 12px;
+  background: #2563eb;
+  color: white;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+}
+
+button:hover {
+  background: #1d4ed8;
 }
 
 #result {
