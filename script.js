@@ -292,7 +292,7 @@ function renderRecommendation(result) {
 
   box.innerHTML = `
     <h2>🚛 推薦停靠點</h2>
-    <p>📍 地址：${escapeHtml(address)}</p>
+    <p>💧 地址：${escapeHtml(address)}</p>
     <p>🚛 車號：${escapeHtml(truck)}</p>
     <p>🕒 抵達時間：${escapeHtml(arrivalTime)}</p>
     <p>📏 距離：約 ${Math.round(result.distanceM)} 公尺</p>
