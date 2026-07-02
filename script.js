@@ -26,6 +26,10 @@ function initMap() {
   }).addTo(map);
 
   stationLayer = L.layerGroup().addTo(map);
+
+  setTimeout(() => {
+    map.invalidateSize();
+  }, 300);
 }
 
 async function loadGarbageData() {
