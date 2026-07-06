@@ -1,6 +1,7 @@
 const DATA_URL = "./garbage.json";
 const WALKING_SPEED_M_PER_MIN = 75;
 const CATCH_BUFFER_MIN = 3;
+const STOP_BUFFER_MIN = 5;
 
 let map;
 let userMarker = null;
@@ -286,7 +287,9 @@ function renderRecommendation(results) {
 
       return `
         <div class="recommend-card">
-          <h3>#${index + 1}</h3>
+          <h3>
+            ${index === 0 ? "🏆 最佳推薦" : `#${index + 1}`}
+          </h3>
           <p>💧 地址：${escapeHtml(address)}</p>
           <p>🚛 車號：${escapeHtml(truck)}</p>
           <p>🕒 抵達時間：${escapeHtml(arrivalTime)}</p>
