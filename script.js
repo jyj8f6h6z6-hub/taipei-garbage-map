@@ -153,6 +153,7 @@ function showUserOnMap(position) {
 
 function recommendCatchableTruck(position) {
   const now = new Date();
+  now.setHours(17, 55, 0, 0);
   const candidates = [];
 
   allStations.forEach((station) => {
@@ -171,8 +172,19 @@ function recommendCatchableTruck(position) {
     const distanceM = getDistanceMeters(position.lat, position.lng, lat, lng);
     const walkingMinutes = Math.ceil(distanceM / WALKING_SPEED_M_PER_MIN);
     const minutesUntilArrival = Math.floor((arrivalDate - now) / 60000);
+    const minutesUntilLeave = Math.floor((leaveDate - now) / 60000);
 
-    const canCatch = minutesUntilArrival >= walkingMinutes + CATCH_BUFFER_MIN;
+    let canCatch = false;
+
+    // 情況 1：垃圾車還沒到，照原本邏輯判斷能不能趕上
+    if (arrivalDate > now) {
+      canCatch = minutesUntilArrival >= walkingMinutes + CATCH_BUFFER_MIN;
+    }
+
+    // 情況 2：垃圾車已到但尚未離站，仍可推薦
+    if (arrivalDate <= now && leaveDate >= now) {
+      canCatch = walkingMinutes <= minutesUntilLeave + STOP_BUFFER_MIN;
+    }
 
     if (!canCatch) return;
 
