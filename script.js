@@ -93,11 +93,24 @@ function renderStations(stations) {
 
 function addLocateButton() {
   const btn = document.getElementById("locateBtn");
-  if (!btn) return;
+  if (btn) {
+    btn.addEventListener("click", locateUser);
+  }
 
-  btn.addEventListener("click", () => {
-    locateUser();
-  });
+  const searchInput = document.getElementById("addressSearch");
+  const searchBtn = document.getElementById("addressSearchBtn");
+
+  if (searchBtn) {
+    searchBtn.addEventListener("click", handleAddressSearch);
+  }
+
+  if (searchInput) {
+    searchInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        handleAddressSearch();
+      }
+    });
+  }
 }
 
 function locateUser() {
@@ -131,6 +144,72 @@ function locateUser() {
       maximumAge: 0,
     }
   );
+
+}
+
+async function handleAddressSearch() {
+  const input = document.getElementById("addressSearch");
+  if (!input) return;
+
+  const keyword = input.value.trim();
+
+  if (!keyword) {
+    showMessage("請輸入地址或地標。");
+    return;
+  }
+
+  showMessage("正在搜尋地址...");
+
+  try {
+    const hasCity = keyword.includes("台北") || keyword.includes("臺北");
+
+    const query = hasCity
+      ? `${keyword}, 台灣`
+      : `${keyword}, 台北市, 台灣`;
+
+    const url =
+      `https://nominatim.openstreetmap.org/search?` +
+      `format=json` +
+      `&limit=1` +
+      `&countrycodes=tw` +
+      `&accept-language=zh-TW` +
+      `&q=${encodeURIComponent(query)}`;
+
+    const res = await fetch(url);
+
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}`);
+    }
+
+    const results = await res.json();
+
+    if (!Array.isArray(results) || results.length === 0) {
+      showMessage("找不到這個地址，請試著輸入更完整的地址。");
+      return;
+    }
+
+    const place = results[0];
+
+    const position = {
+      lat: Number(place.lat),
+      lng: Number(place.lon),
+    };
+
+    if (!isValidLatLng(position.lat, position.lng)) {
+      showMessage("搜尋結果座標格式錯誤。");
+      return;
+    }
+
+    userPosition = position;
+
+    showUserOnMap(position);
+    recommendCatchableTruck(position);
+
+    showMessage(`已搜尋到：${place.display_name || keyword}`);
+  } catch (err) {
+    console.error("Address search failed:", err);
+    showMessage("地址搜尋失敗，請稍後再試。");
+  }
 }
 
 function showUserOnMap(position) {
