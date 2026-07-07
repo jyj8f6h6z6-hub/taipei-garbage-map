@@ -248,6 +248,17 @@ function showTrucksOnMap(results, position) {
       .addTo(map)
       .bindPopup(`🚛 推薦停靠點 ${index + 1}`);
 
+    marker.on("click", () => {
+      const card = document.getElementById(`recommend-card-${index}`);
+
+      if (card) {
+        card.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      }
+    });
+
     truckMarkers.push(marker);
     points.push([item.lat, item.lng]);
   });
@@ -298,7 +309,7 @@ function renderRecommendation(results) {
         `&travelmode=walking`;
 
       return `
-        <div class="recommend-card">
+        <div class="recommend-card" id="recommend-card-${index}">
           <h3>
             ${index === 0 ? "🏆 最佳推薦" : `#${index + 1}`}
           </h3>
