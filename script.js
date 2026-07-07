@@ -101,6 +101,7 @@ function addLocateButton() {
 }
 
 function locateUser() {
+
   if (!navigator.geolocation) {
     showMessage("此瀏覽器不支援定位功能。");
     return;
@@ -153,10 +154,10 @@ function showUserOnMap(position) {
 
 function recommendCatchableTruck(position) {
   const now = new Date();
-  now.setHours(17, 55, 0, 0);
   const candidates = [];
 
   allStations.forEach((station) => {
+    
     const lat = Number(station.lat);
     const lng = Number(station.lng);
 
@@ -201,11 +202,10 @@ function recommendCatchableTruck(position) {
   });
 
   candidates.sort((a, b) => {
-    if (a.arrivalDate.getTime() !== b.arrivalDate.getTime()) {
-      return a.arrivalDate - b.arrivalDate;
-    }
+    const aWait = Math.max(0, a.minutesUntilArrival);
+    const bWait = Math.max(0, b.minutesUntilArrival);
 
-    return a.distanceM - b.distanceM;
+    return (aWait + a.walkingMinutes) - (bWait + b.walkingMinutes);
   });
 
   const bestRouteStations = new Map();
@@ -221,7 +221,7 @@ function recommendCatchableTruck(position) {
   const uniqueCandidates = [...bestRouteStations.values()];
   const best = uniqueCandidates[0];
 
-  const results = candidates.slice(0, 5);
+  const results = uniqueCandidates.slice(0, 5);
 
 if (results.length === 0) {
   clearTruckMarkers();
