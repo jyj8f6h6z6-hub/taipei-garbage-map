@@ -300,7 +300,7 @@ function recommendCatchableTruck(position) {
   const uniqueCandidates = [...bestRouteStations.values()];
   const best = uniqueCandidates[0];
 
-  const results = uniqueCandidates.slice(0, 5);
+  const results = uniqueCandidates.slice(0, 8);
 
 if (results.length === 0) {
   clearTruckMarkers();
