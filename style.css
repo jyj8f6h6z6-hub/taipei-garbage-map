@@ -89,6 +89,60 @@ button:active {
   transform: translateY(0);
 }
 
+/* 地址搜尋 */
+.search-section {
+  margin-top: 18px;
+  padding: 16px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(229, 231, 235, 0.9);
+}
+
+.search-section label {
+  display: block;
+  margin-bottom: 10px;
+  font-size: 15px;
+  font-weight: 800;
+  color: #111827;
+}
+
+.search-row {
+  display: flex;
+  gap: 10px;
+}
+
+#addressSearch {
+  flex: 1;
+  min-width: 0;
+  padding: 13px 14px;
+  font-size: 15px;
+  border: 1px solid #d1d5db;
+  border-radius: 14px;
+  outline: none;
+  box-sizing: border-box;
+}
+
+#addressSearch:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.16);
+}
+
+#addressSearchBtn {
+  width: auto;
+  margin-top: 0;
+  padding: 13px 16px;
+  border-radius: 14px;
+  font-size: 15px;
+  white-space: nowrap;
+}
+
+.search-hint {
+  margin: 10px 0 0;
+  font-size: 13px;
+  color: #6b7280;
+  line-height: 1.5;
+}
+
 /* 結果外框 */
 #result {
   margin-top: 24px;

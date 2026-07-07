@@ -26,6 +26,21 @@
         <p id="dataStatus">資料載入中...</p>
         <p>找出你現在最快可趕上的垃圾車清運點</p>
         <button id="locateBtn">使用我的位置</button>
+        <div class="search-section">
+        <label for="addressSearch">地址搜尋</label>
+
+        <div class="search-row">
+          <input
+            id="addressSearch"
+            type="text"
+            placeholder="輸入地址或地標"
+            autocomplete="off"
+          />
+          <button id="addressSearchBtn" type="button">搜尋</button>
+        </div>
+
+        <p class="search-hint">目前僅新增介面，尚未串接地址查詢。</p>
+      </div>
       </header>
 
       <section id="result">
