@@ -7,13 +7,16 @@ const STOP_BUFFER_MIN = 5;
 // Developer Mode
 // =========================
 // 測試完後要記得改回 false
-const DEV_MODE = false;
+const DEV_MODE = true;
 
 // 測試用假時間，格式 HH:mm
-const DEV_TEST_TIME = "17:15";
+const DEV_TEST_TIME = "21:50";
 
-// 假座標（之後會用）
-const DEV_TEST_POSITION = null;
+// 假座標（之後會用）測試完記得改回null
+const DEV_TEST_POSITION = {
+  lat: 24.99253165447432,
+  lng: 121.55963686432091,
+};
 
 // 顯示 Debug 資訊（之後會用）
 const DEV_SHOW_DEBUG = false;
@@ -147,6 +150,16 @@ function addLocateButton() {
 }
 
 function locateUser() {
+
+  if (DEV_MODE && DEV_TEST_POSITION) {
+    userPosition = DEV_TEST_POSITION;
+
+    showMessage("🧪 Developer Mode：使用假座標");
+
+    showUserOnMap(userPosition);
+    recommendCatchableTruck(userPosition);
+    return;
+  }
 
   if (!navigator.geolocation) {
     showMessage("此瀏覽器不支援定位功能。");
@@ -320,7 +333,7 @@ function recommendCatchableTruck(position) {
     return (aWait + a.walkingMinutes) - (bWait + b.walkingMinutes);
   });
 
-  const results = candidates.slice(0, 8);
+  const results = candidates.slice(0, 10);
 
 if (results.length === 0) {
   clearTruckMarkers();
