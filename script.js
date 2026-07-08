@@ -204,6 +204,9 @@ async function handleAddressSearch() {
     return;
   }
 
+  clearTruckMarkers();
+  renderRecommendation([]);
+  
   showMessage("正在搜尋地址...");
 
   try {
@@ -213,32 +216,24 @@ async function handleAddressSearch() {
       ? `${keyword}, 台灣`
       : `${keyword}, 台北市, 台灣`;
 
-    const url =
-      `https://nominatim.openstreetmap.org/search?` +
-      `format=json` +
-      `&limit=1` +
-      `&countrycodes=tw` +
-      `&accept-language=zh-TW` +
-      `&q=${encodeURIComponent(query)}`;
+    const geocoder = new google.maps.Geocoder();
 
-    const res = await fetch(url);
+    const result = await geocoder.geocode({
+      address: query,
+      region: "tw",
+      language: "zh-TW",
+    });
 
-    if (!res.ok) {
-      throw new Error(`HTTP ${res.status}`);
-    }
-
-    const results = await res.json();
-
-    if (!Array.isArray(results) || results.length === 0) {
+    if (!result.results || result.results.length === 0) {
       showMessage("找不到這個地址，請試著輸入更完整的地址。");
       return;
     }
 
-    const place = results[0];
+    const place = result.results[0];
 
     const position = {
-      lat: Number(place.lat),
-      lng: Number(place.lon),
+      lat: place.geometry.location.lat(),
+      lng: place.geometry.location.lng(),
     };
 
     if (!isValidLatLng(position.lat, position.lng)) {
@@ -251,7 +246,7 @@ async function handleAddressSearch() {
     showUserOnMap(position);
     recommendCatchableTruck(position);
 
-    showMessage(`已搜尋到：${place.display_name || keyword}`);
+    showMessage(`已搜尋到：${place.formatted_address || keyword}`);
   } catch (err) {
     console.error("Address search failed:", err);
     showMessage("地址搜尋失敗，請稍後再試。");
