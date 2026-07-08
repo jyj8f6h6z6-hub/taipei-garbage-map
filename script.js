@@ -3,6 +3,23 @@ const WALKING_SPEED_M_PER_MIN = 75;
 const CATCH_BUFFER_MIN = 3;
 const STOP_BUFFER_MIN = 5;
 
+// =========================
+// Developer Mode
+// =========================
+// 測試完後要記得改回 false
+const DEV_MODE = false;
+
+// 測試用假時間，格式 HH:mm
+const DEV_TEST_TIME = "17:15";
+
+// 假座標（之後會用）
+const DEV_TEST_POSITION = null;
+
+// 顯示 Debug 資訊（之後會用）
+const DEV_SHOW_DEBUG = false;
+// =========================
+
+
 let map;
 let userMarker = null;
 let truckMarkers = [];
@@ -16,6 +33,22 @@ async function init() {
   initMap();
   await loadGarbageData();
   addLocateButton();
+}
+
+function getCurrentTime() {
+  const now = new Date();
+
+  if (!DEV_MODE || !DEV_TEST_TIME) {
+    return now;
+  }
+
+  const match = DEV_TEST_TIME.match(/^(\d{1,2})[:：](\d{2})$/);
+  if (!match) return now;
+
+  const testNow = new Date(now);
+  testNow.setHours(Number(match[1]), Number(match[2]), 0, 0);
+
+  return testNow;
 }
 
 function initMap() {
@@ -232,7 +265,7 @@ function showUserOnMap(position) {
 }
 
 function recommendCatchableTruck(position) {
-  const now = new Date();
+  const now = getCurrentTime();
   const candidates = [];
 
   allStations.forEach((station) => {
@@ -287,20 +320,7 @@ function recommendCatchableTruck(position) {
     return (aWait + a.walkingMinutes) - (bWait + b.walkingMinutes);
   });
 
-  const bestRouteStations = new Map();
-
-  candidates.forEach((candidate) => {
-    const route = candidate.station.route || candidate.station.truck || "unknown";
-
-    if (!bestRouteStations.has(route)) {
-      bestRouteStations.set(route, candidate);
-    }
-  });
-
-  const uniqueCandidates = [...bestRouteStations.values()];
-  const best = uniqueCandidates[0];
-
-  const results = uniqueCandidates.slice(0, 8);
+  const results = candidates.slice(0, 8);
 
 if (results.length === 0) {
   clearTruckMarkers();
@@ -368,14 +388,14 @@ function renderRecommendation(results) {
 
   if (!results || results.length === 0) {
     box.innerHTML = `
-      <h2>🚛 最近五個垃圾車</h2>
+      <h2>🚛 附近垃圾車</h2>
       <p>目前附近沒有找到 2 分鐘後可抵達的垃圾車。</p>
     `;
     return;
   }
 
   box.innerHTML = `
-    <h2>🚛 最近五個垃圾車</h2>
+    <h2>🚛 附近垃圾車</h2>
     ${results.map((result, index) => {
       const station = result.station;
       const address = station.address || "未知地點";
