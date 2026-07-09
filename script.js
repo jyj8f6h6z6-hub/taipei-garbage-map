@@ -209,6 +209,7 @@ async function handleAddressSearch() {
     return;
   }
 
+  clearTruckRoute();
   clearTruckMarkers();
   renderRecommendation([]);
   
@@ -278,6 +279,8 @@ function showUserOnMap(position) {
 }
 
 function recommendCatchableTruck(position) {
+  clearTruckRoute();
+  
   const now = getCurrentTime();
   const candidates = [];
 
@@ -352,15 +355,7 @@ function showTruckRoute(item) {
   const routeKey = `${item.station.truck}-${item.station.time}`;
 
   if (currentRouteKey === routeKey) {
-    if (routeLine) {
-      map.removeLayer(routeLine);
-      routeLine = null;
-    }
-
-    routeMarkers.forEach(marker => map.removeLayer(marker));
-    routeMarkers = [];
-
-    currentRouteKey = null;
+    clearTruckRoute();
     return;
   }
 
@@ -507,6 +502,25 @@ function clearTruckMarkers() {
   });
 
   truckMarkers = [];
+}
+
+function clearTruckRoute() {
+  if (routeLine) {
+    map.removeLayer(routeLine);
+    routeLine = null;
+  }
+
+  routeMarkers.forEach((marker) => {
+    map.removeLayer(marker);
+  });
+  routeMarkers = [];
+
+  routeArrowMarkers.forEach((marker) => {
+    map.removeLayer(marker);
+  });
+  routeArrowMarkers = [];
+
+  currentRouteKey = null;
 }
 
 function renderRecommendation(results) {
