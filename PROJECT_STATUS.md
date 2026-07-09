@@ -12,9 +12,9 @@ Last Updated: 2026-07-09
 
 ## Current Version
 
-v1.3.1
+v1.3.2
 
-Status: 🚧 In Progress（核心推薦重構）
+Status: 🚧 In Progress（路徑視覺化）
 
 ---
 
@@ -51,63 +51,64 @@ Status: 🚧 In Progress（核心推薦重構）
 - Google Analytics
 
 ### Address Search
-- 地址搜尋（Nominatim）
+- 地址搜尋（Google Geocoding）
 - 搜尋成功後重新定位
 - 搜尋後重新推薦垃圾車
 - 地址搜尋與 GPS 共用 recommendCatchableTruck()
 - 搜尋提示移至搜尋框下方
 - 搜尋介面優化
 
+### Route Visualization
+- 點擊推薦 Marker 顯示後續路徑
+- Polyline 顯示後續路線
+- 後續停靠點顯示 🚛 Marker
+- 點擊 🚛 顯示車號、時間、地址
+- 路徑僅顯示後續 30 分鐘
+- 點擊相同推薦點可收合路徑
+- 點擊不同推薦點自動切換路徑
+
 ---
 
 ## Known Issues
 
 ### Recommendation
-- 推薦排序仍採目前演算法（等待時間 + 步行時間）。
-- 尚未建立新的 Catch Score 排序模型。
+- 推薦排序仍採目前演算法（等待時間 + 步行時間）
+- 尚未建立 Catch Score 排序模型
 
-### Address Search
-- Nominatim 對部分中文門牌地址成功率仍有限。
-- 後續將加入 Fallback Search。
+### Route Visualization
+- Polyline 仍採直線連接
+- 尚未加入實際道路導航路徑
 
 ### Open Data
-- 已發現臺北市垃圾車開放資料存在個別座標錯誤案例。
-- 已確認「臺北市文山區景興路15號前」座標異常，非程式問題。
+- 已發現臺北市垃圾車開放資料存在個別座標錯誤案例
+- 已確認「臺北市文山區景興路15號前」座標異常，非程式問題
 
 ---
 
 ## Next Milestone
 
-### v1.3.2（地址搜尋優化）
+### v1.3.3（Developer Debug）
 
-- [ ] Enter 鍵搜尋
-- [ ] 搜尋按鈕 Loading
-- [ ] 搜尋期間停用按鈕
-- [ ] Fallback Search（改善地址搜尋成功率）
+- [ ] Debug Mode
+- [ ] 顯示推薦分數
+- [ ] 顯示淘汰原因
+- [ ] 顯示步行時間
+- [ ] 顯示等待時間
 
 ---
 
 ## Future Roadmap
 
-### v1.3.3（路徑視覺化）
-
-- [ ] 推薦垃圾車後續路徑顯示
-- [ ] 同車號停靠點以 Polyline 連接
-- [ ] 每個停靠點保留 Marker
-- [ ] 點擊 Marker 查看推薦資訊
-- [ ] 不修改推薦演算法
-
 ### Developer Mode
 
 - [x] 假時間
 - [x] 假座標
-- [ ] Debug 模式
-- [ ] 顯示推薦分數
-- [ ] 顯示淘汰原因
+- [ ] Debug Mode
+- [ ] Catch Score
+- [ ] 淘汰原因
 
 ### v1.4
 
-- [x] Google Analytics
 - [ ] SEO
 - [ ] robots.txt
 - [ ] sitemap.xml
@@ -130,10 +131,10 @@ Status: 🚧 In Progress（核心推薦重構）
 
 ## Notes
 
-目前推薦邏輯已改為以「停靠點」為推薦單位。
+目前推薦已以停靠點為單位。
 
-經過假時間、假座標與實地測試，目前推薦結果符合預期，因此暫不調整推薦演算法。
+地址搜尋已改採 Google Geocoding，成功率符合預期，因此地址搜尋功能暫告完成。
 
-Developer Mode 已成為後續演算法與資料驗證的重要工具，可快速重現特定時間與位置。
+路徑視覺化第一階段完成，使用者可查看推薦停靠點後續 30 分鐘的垃圾車行駛路徑與停靠資訊。
 
-本次亦利用 Developer Mode 發現臺北市開放資料單筆座標錯誤，證明模擬測試環境具有實際價值。
+下一階段將重心轉向 Developer Debug Mode，提升演算法驗證效率。

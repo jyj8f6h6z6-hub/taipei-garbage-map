@@ -2,6 +2,7 @@ const DATA_URL = "./garbage.json";
 const WALKING_SPEED_M_PER_MIN = 75;
 const CATCH_BUFFER_MIN = 3;
 const STOP_BUFFER_MIN = 5;
+const ROUTE_PREVIEW_MIN = 30;//推薦點後顯示多久時間
 
 // =========================
 // Developer Mode
@@ -10,7 +11,7 @@ const STOP_BUFFER_MIN = 5;
 const DEV_MODE = false;
 
 // 測試用假時間，格式 HH:mm
-const DEV_TEST_TIME = "21:50";
+const DEV_TEST_TIME = "19:20";
 
 // 假座標（之後會用）測試完記得改回null
 const DEV_TEST_POSITION = {
@@ -29,6 +30,10 @@ let truckMarkers = [];
 let stationLayer;
 let allStations = [];
 let userPosition = null;
+let routeLine = null;
+let routeMarkers = [];
+let routeArrowMarkers = [];
+let currentRouteKey = null;
 
 init();
 
@@ -343,6 +348,117 @@ showMessage(`已找到 ${results.length} 個推薦停靠點。`);
 showTrucksOnMap(results, position);
 }
 
+function showTruckRoute(item) {
+  const routeKey = `${item.station.truck}-${item.station.time}`;
+
+  if (currentRouteKey === routeKey) {
+    if (routeLine) {
+      map.removeLayer(routeLine);
+      routeLine = null;
+    }
+
+    routeMarkers.forEach(marker => map.removeLayer(marker));
+    routeMarkers = [];
+
+    currentRouteKey = null;
+    return;
+  }
+
+  currentRouteKey = routeKey;
+
+  const truckNo = item.station.truck;
+  const selectedTime = item.station.time;
+
+  const selectedDate = parseArrivalTimeToday(item.station.time, getCurrentTime());
+  const routeEndDate = new Date(selectedDate.getTime() + ROUTE_PREVIEW_MIN * 60000  );
+
+  const futureStops = allStations
+    .filter((station) => {
+      return station.truck === truckNo;
+    })
+    .filter((station) => {
+      const stationDate = parseArrivalTimeToday(station.time, getCurrentTime());
+
+      return (
+        stationDate >= selectedDate &&
+        stationDate <= routeEndDate
+      );
+    })
+    .sort((a, b) => {
+      return a.time.localeCompare(b.time);
+    });
+
+  console.log("後續路徑停靠點:", futureStops);
+
+  const routePoints = futureStops.map((station) => {
+    return [Number(station.lat), Number(station.lng)];
+  });
+
+  if (routeLine) {
+    map.removeLayer(routeLine);
+  }
+
+  routeMarkers.forEach((marker) => {
+    map.removeLayer(marker);
+  });
+
+  routeMarkers = [];
+
+  routeArrowMarkers.forEach((marker) => {
+    map.removeLayer(marker);
+  });
+
+  routeArrowMarkers = [];
+
+  routeLine = L.polyline(routePoints, {
+    color: "#1976d2",
+    weight: 5,
+    opacity: 0.8,
+    dashArray: "10,10",
+  }).addTo(map);
+
+  //const decorator = L.polylineDecorator(routeLine, {
+  //  patterns: [
+  //    {
+  //      offset: 0,
+  //      repeat: 80,
+  //      symbol: L.Symbol.dash({
+  //        pixelSize: 20,
+  //        pathOptions: {
+  //          color: "#1976d2",
+  //          weight: 4,
+  //          opacity: 0.9,
+  //        },
+  //      }),
+  //    },
+  //  ],
+  //}).addTo(map);
+
+  futureStops.forEach((station) => {
+
+    if (station.time === item.station.time) {
+      return;
+    }
+
+    const marker = L.marker([station.lat, station.lng], {
+      icon: createTruckIcon(),
+      zIndexOffset: 2000,
+    })
+    .addTo(map)
+    .bindPopup(`
+      <strong>🚛 ${station.truck}</strong><br>
+      🕒 ${station.time} ~ ${station.leaveTime}<br>
+      📍 ${station.address}
+    `);
+
+    routeMarkers.push(marker);
+
+  });
+
+}
+
+
+
 function showTrucksOnMap(results, position) {
   clearTruckMarkers();
 
@@ -364,6 +480,9 @@ function showTrucksOnMap(results, position) {
           block: "start",
         });
       }
+
+      showTruckRoute(item);
+
     });
 
     truckMarkers.push(marker);
@@ -549,8 +668,18 @@ function createTruckIcon() {
   return L.divIcon({
     className: "truck-cartoon-icon",
     html: "🚛",
-    iconSize: [36, 36],
-    iconAnchor: [18, 36],
-    popupAnchor: [0, -36],
+    iconSize: [48, 48],
+    iconAnchor: [24, 48],
+    popupAnchor: [0, -48],
   });
 }
+
+function createRouteArrowIcon() {
+  return L.divIcon({
+    className: "route-arrow-icon",
+    html: "➤",
+    iconSize: [24, 24],
+    iconAnchor: [12, 12],
+  });
+}
+
