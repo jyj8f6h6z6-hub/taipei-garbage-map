@@ -1,6 +1,6 @@
 const DATA_URL = "./garbage.json";
 const WALKING_SPEED_M_PER_MIN = 75;
-const CATCH_BUFFER_MIN = 3;
+const CATCH_BUFFER_MIN = 0;
 const STOP_BUFFER_MIN = 5;
 const ROUTE_PREVIEW_MIN = 30;//推薦點後顯示多久時間
 
