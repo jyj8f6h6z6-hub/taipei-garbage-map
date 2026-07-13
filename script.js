@@ -547,21 +547,23 @@ function showRecommendationToggleButton() {
     "toggleRecommendationMarkersBtn"
   );
 
-  // 找不到按鈕時才建立
   if (!button) {
     button = document.createElement("button");
     button.id = "toggleRecommendationMarkersBtn";
     button.type = "button";
 
     button.addEventListener("click", () => {
-        clearTruckRoute();
-      });
+      clearTruckRoute();
+    });
 
-    document.body.appendChild(button);
+    const mapContainer = document.getElementById("map");
+
+    if (mapContainer) {
+      mapContainer.appendChild(button);
+    }
   }
 
   button.style.display = "flex";
-
   updateRecommendationToggleButton();
 }
 
