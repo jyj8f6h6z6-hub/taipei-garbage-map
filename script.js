@@ -2,21 +2,23 @@ const DATA_URL = "./garbage.json";
 const WALKING_SPEED_M_PER_MIN = 75;
 const CATCH_BUFFER_MIN = 0;
 const STOP_BUFFER_MIN = 5;
-const ROUTE_PREVIEW_MIN = 30;//推薦點後顯示多久時間
+const ROUTE_PREVIEW_MIN = 20;//推薦點後顯示多久時間
+
+const MAX_RECOMMENDATIONS = 5;// 推薦最多幾個停靠點
 
 // =========================
 // Developer Mode
 // =========================
 // 測試完後要記得改回 false
-const DEV_MODE = true;
+const DEV_MODE = false;
 
 // 測試用假時間，格式 HH:mm
-const DEV_TEST_TIME = "19:45";
+const DEV_TEST_TIME = "20:41";
 
 // 假座標（之後會用）測試完記得改回null
 const DEV_TEST_POSITION = {
-  lat: 24.99311302,
-  lng: 121.56029363, 
+  lat: 24.99864159891915,  
+  lng: 121.55823471471612,
 };
 
 // 顯示 Debug 資訊（之後會用）
@@ -336,7 +338,7 @@ function recommendCatchableTruck(position) {
     return (aWait + a.walkingMinutes) - (bWait + b.walkingMinutes);
   });
 
-  const results = candidates.slice(0, 10);
+  const results = candidates.slice(0, MAX_RECOMMENDATIONS);
 
 if (results.length === 0) {
   clearTruckMarkers();
@@ -360,6 +362,8 @@ function showTruckRoute(item) {
   }
 
   currentRouteKey = routeKey;
+  
+  showRecommendationToggleButton();  // 路徑顯示時，才顯示隱藏按鈕
 
   const truckNo = item.station.truck;
   const selectedTime = item.station.time;
@@ -452,8 +456,6 @@ function showTruckRoute(item) {
 
 }
 
-
-
 function showTrucksOnMap(results, position) {
   clearTruckMarkers();
 
@@ -467,7 +469,9 @@ function showTrucksOnMap(results, position) {
       .bindPopup(`🚛 推薦停靠點 ${index + 1}`);
 
     marker.on("click", () => {
-      const card = document.getElementById(`recommend-card-${index}`);
+      const card = document.getElementById(
+        `recommend-card-${index}`
+      );
 
       if (card) {
         card.scrollIntoView({
@@ -476,8 +480,15 @@ function showTrucksOnMap(results, position) {
         });
       }
 
-      showTruckRoute(item);
+      const routeKey = `${item.station.truck}-${item.station.time}`;
 
+      // 點擊同一點時，showTruckRoute() 會清除路徑
+      if (currentRouteKey !== routeKey) {
+        currentSelectedTruckMarker = marker;
+        otherRecommendationMarkersHidden = false;
+      }
+
+      showTruckRoute(item);
     });
 
     truckMarkers.push(marker);
@@ -511,16 +522,73 @@ function clearTruckRoute() {
   }
 
   routeMarkers.forEach((marker) => {
-    map.removeLayer(marker);
+    if (map.hasLayer(marker)) {
+      map.removeLayer(marker);
+    }
   });
+
   routeMarkers = [];
 
   routeArrowMarkers.forEach((marker) => {
-    map.removeLayer(marker);
+    if (map.hasLayer(marker)) {
+      map.removeLayer(marker);
+    }
   });
+
   routeArrowMarkers = [];
 
   currentRouteKey = null;
+
+  hideRecommendationToggleButton();
+}
+
+function showRecommendationToggleButton() {
+  let button = document.getElementById(
+    "toggleRecommendationMarkersBtn"
+  );
+
+  // 找不到按鈕時才建立
+  if (!button) {
+    button = document.createElement("button");
+    button.id = "toggleRecommendationMarkersBtn";
+    button.type = "button";
+
+    button.addEventListener("click", () => {
+        clearTruckRoute();
+      });
+
+    document.body.appendChild(button);
+  }
+
+  button.style.display = "flex";
+
+  updateRecommendationToggleButton();
+}
+
+function hideRecommendationToggleButton() {
+  const button = document.getElementById(
+    "toggleRecommendationMarkersBtn"
+  );
+
+  if (!button) return;
+
+  button.style.display = "none";
+}
+
+function updateRecommendationToggleButton() {
+  const button = document.getElementById(
+    "toggleRecommendationMarkersBtn"
+  );
+
+  if (!button) return;
+
+  button.innerHTML = `
+    <span>隱藏</span>
+    <span>路徑</span>
+  `;
+
+  button.title = "隱藏路徑";
+  button.setAttribute("aria-label", "隱藏路徑");
 }
 
 function renderRecommendation(results) {

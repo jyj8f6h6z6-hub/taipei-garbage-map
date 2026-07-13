@@ -363,3 +363,66 @@ button:active {
   }
   
 }
+
+#toggleRecommendationMarkersBtn {
+  display: none;
+
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 5000;
+
+  width: 64px;
+  height: 64px;
+  padding: 0;
+
+  border: none;
+  border-radius: 18px;
+
+  background: #007aff;
+  color: #fff;
+
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 1px;
+
+  box-shadow:
+    0 6px 16px rgba(0, 122, 255, 0.32),
+    0 2px 6px rgba(0, 0, 0, 0.16);
+
+  cursor: pointer;
+
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    transform 0.15s ease,
+    background-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+#toggleRecommendationMarkersBtn span {
+  display: block;
+  white-space: nowrap;
+}
+
+#toggleRecommendationMarkersBtn:hover {
+  background: #006ee6;
+  box-shadow:
+    0 8px 20px rgba(0, 122, 255, 0.36),
+    0 3px 8px rgba(0, 0, 0, 0.18);
+}
+
+#toggleRecommendationMarkersBtn:active {
+  transform: scale(0.94);
+  background: #0062cc;
+}
+
+#toggleRecommendationMarkersBtn:focus-visible {
+  outline: 3px solid rgba(0, 122, 255, 0.3);
+  outline-offset: 3px;
+}
