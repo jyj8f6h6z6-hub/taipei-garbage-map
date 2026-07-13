@@ -10,7 +10,7 @@ const MAX_RECOMMENDATIONS = 5;// 推薦最多幾個停靠點
 // Developer Mode
 // =========================
 // 測試完後要記得改回 false
-const DEV_MODE = true;
+const DEV_MODE = false;
 
 // 測試用假時間，格式 HH:mm
 const DEV_TEST_DATE = "2026-07-19";

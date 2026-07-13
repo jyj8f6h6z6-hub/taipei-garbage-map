@@ -1,64 +1,77 @@
-Last Updated: 2026-07-13
+# Next Step
+
+## Current Target
+
+### v1.3.6 — 停收日判斷
+
+### Goal
+
+將垃圾停收規則正式納入推薦流程。
 
 ---
 
-# Current Milestone
+## Tasks
 
-v1.3.3 — Developer Debug Mode
+### 停收日判斷
 
----
-
-## Goal
-
-建立完整的演算法除錯工具。
-
-讓所有推薦結果都能在模擬環境下快速驗證，而不用每次都到現場測試。
-
----
-
-## Todo
-
-### Debug Mode
-
-- [ ] DEV_DEBUG
-- [ ] 顯示 Catch Score
-- [ ] 顯示等待時間
-- [ ] 顯示步行時間
-- [ ] 顯示推薦排序依據
-
-### Candidate Debug
-
-- [ ] 顯示所有候選停靠點
-- [ ] 顯示淘汰原因
-- [ ] 顯示淘汰時間差
-- [ ] 顯示步行距離
-- [ ] 顯示是否可追上
+* [ ] 建立 `getCollectionStatus()`
+* [ ] 新增週三停收判斷
+* [ ] 新增週日停收判斷
+* [ ] 推薦演算法共用停收判斷
+* [ ] GPS 定位共用停收判斷
+* [ ] 地址搜尋共用停收判斷
 
 ### UI
 
-- [ ] Debug Panel
-- [ ] 一鍵開關 Debug
-- [ ] 顯示演算法計算結果
+* [ ] 新增停收日提示畫面
+* [ ] 顯示停收原因
+* [ ] 停收日不顯示推薦卡
+* [ ] 停收日清除推薦 Marker
+* [ ] 停收日清除路徑
 
-### Route UI
+### Developer Mode
 
-- [ ] 優化「隱藏路徑」按鈕位置
-- [ ] 手機版按鈕位置最佳化
-- [ ] 與 Leaflet 控制項整合
-- [ ] 評估改為 Leaflet Control 樣式
-
----
-
-## Development Strategy
-
-1. 修正核心推薦
-2. 建立 Developer Mode
-3. 建立 Debug 工具
-4. 模擬測試
-5. 現場驗證
+* [ ] 新增 DEV_TEST_DATE
+* [ ] 支援模擬星期三
+* [ ] 支援模擬星期日
+* [ ] 支援日期 + 時間測試
 
 ---
 
-## Long-term
+## After v1.3.6
 
-完成 Debug Mode 後，再開始規劃 Catch Score 演算法重構。
+### Developer Debug Mode
+
+* [ ] Debug Mode
+* [ ] 顯示推薦分數
+* [ ] 顯示步行時間
+* [ ] 顯示等待時間
+* [ ] 顯示 Catch Score
+* [ ] 顯示淘汰原因
+
+### Catch Score
+
+* [ ] 建立 Catch Score 排序模型
+* [ ] 取代目前排序方式
+
+### Future
+
+#### v1.4
+
+* [ ] SEO
+* [ ] robots.txt
+* [ ] sitemap.xml
+* [ ] Google Search Console
+
+#### v1.5
+
+* [ ] 收藏站點
+* [ ] 分享連結
+* [ ] PWA
+
+#### v2.0
+
+* [ ] 自有 API
+* [ ] 自訂網域
+* [ ] 後端
+* [ ] 營利模式
