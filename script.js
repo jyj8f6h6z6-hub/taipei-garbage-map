@@ -8,15 +8,15 @@ const ROUTE_PREVIEW_MIN = 30;//推薦點後顯示多久時間
 // Developer Mode
 // =========================
 // 測試完後要記得改回 false
-const DEV_MODE = false;
+const DEV_MODE = true;
 
 // 測試用假時間，格式 HH:mm
-const DEV_TEST_TIME = "19:20";
+const DEV_TEST_TIME = "19:45";
 
 // 假座標（之後會用）測試完記得改回null
 const DEV_TEST_POSITION = {
-  lat: 24.99253165447432,
-  lng: 121.55963686432091,
+  lat: 24.99311302,
+  lng: 121.56029363, 
 };
 
 // 顯示 Debug 資訊（之後會用）
