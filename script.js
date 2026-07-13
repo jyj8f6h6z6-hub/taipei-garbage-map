@@ -4,7 +4,7 @@ const CATCH_BUFFER_MIN = 0;
 const STOP_BUFFER_MIN = 5;
 const ROUTE_PREVIEW_MIN = 20;//推薦點後顯示多久時間
 
-const MAX_RECOMMENDATIONS = 5;// 推薦最多幾個停靠點
+const MAX_RECOMMENDATIONS = 10;// 推薦最多幾個停靠點
 
 // =========================
 // Developer Mode
@@ -13,13 +13,13 @@ const MAX_RECOMMENDATIONS = 5;// 推薦最多幾個停靠點
 const DEV_MODE = false;
 
 // 測試用假時間，格式 HH:mm
-const DEV_TEST_DATE = "2026-07-19";
-const DEV_TEST_TIME = "20:41";
+const DEV_TEST_DATE = "2026-07-13";
+const DEV_TEST_TIME = "17:01";
 
 // 假座標（之後會用）測試完記得改回null
 const DEV_TEST_POSITION = {
-  lat: 24.99864159891915,  
-  lng: 121.55823471471612,
+  lat: 24.992362324899716, 
+  lng: 121.55878284206955,
 };
 
 // 顯示 Debug 資訊（之後會用）
