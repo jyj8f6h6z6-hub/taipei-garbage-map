@@ -1,6 +1,4 @@
-# PROJECT STATUS
-
-Last Updated: 2026-07-09
+Last Updated: 2026-07-13
 
 ---
 
@@ -14,7 +12,7 @@ Last Updated: 2026-07-09
 
 v1.3.2
 
-Status: 🚧 In Progress（路徑視覺化）
+Status: 🚧 In Progress（Developer Debug）
 
 ---
 
@@ -66,6 +64,9 @@ Status: 🚧 In Progress（路徑視覺化）
 - 路徑僅顯示後續 30 分鐘
 - 點擊相同推薦點可收合路徑
 - 點擊不同推薦點自動切換路徑
+- 新增「隱藏路徑」按鈕
+- 路徑顯示時才顯示隱藏按鈕
+- 隱藏路徑後自動移除 Polyline 與路徑 Marker
 
 ---
 
@@ -78,6 +79,7 @@ Status: 🚧 In Progress（路徑視覺化）
 ### Route Visualization
 - Polyline 仍採直線連接
 - 尚未加入實際道路導航路徑
+- 隱藏路徑按鈕 UI 持續優化（位置與樣式）
 
 ### Open Data
 - 已發現臺北市垃圾車開放資料存在個別座標錯誤案例
@@ -136,5 +138,7 @@ Status: 🚧 In Progress（路徑視覺化）
 地址搜尋已改採 Google Geocoding，成功率符合預期，因此地址搜尋功能暫告完成。
 
 路徑視覺化第一階段完成，使用者可查看推薦停靠點後續 30 分鐘的垃圾車行駛路徑與停靠資訊。
+
+已加入「隱藏路徑」功能，後續將持續優化按鈕樣式與位置。
 
 下一階段將重心轉向 Developer Debug Mode，提升演算法驗證效率。

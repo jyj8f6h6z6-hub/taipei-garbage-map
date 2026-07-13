@@ -10,9 +10,10 @@ const MAX_RECOMMENDATIONS = 5;// 推薦最多幾個停靠點
 // Developer Mode
 // =========================
 // 測試完後要記得改回 false
-const DEV_MODE = false;
+const DEV_MODE = true;
 
 // 測試用假時間，格式 HH:mm
+const DEV_TEST_DATE = "2026-07-19";
 const DEV_TEST_TIME = "20:41";
 
 // 假座標（之後會用）測試完記得改回null
@@ -48,17 +49,63 @@ async function init() {
 function getCurrentTime() {
   const now = new Date();
 
-  if (!DEV_MODE || !DEV_TEST_TIME) {
+  if (!DEV_MODE) {
     return now;
   }
 
-  const match = DEV_TEST_TIME.match(/^(\d{1,2})[:：](\d{2})$/);
-  if (!match) return now;
-
   const testNow = new Date(now);
-  testNow.setHours(Number(match[1]), Number(match[2]), 0, 0);
+
+  if (DEV_TEST_DATE) {
+    const dateMatch = DEV_TEST_DATE.match(
+      /^(\d{4})-(\d{2})-(\d{2})$/
+    );
+
+    if (dateMatch) {
+      testNow.setFullYear(
+        Number(dateMatch[1]),
+        Number(dateMatch[2]) - 1,
+        Number(dateMatch[3])
+      );
+    }
+  }
+
+  if (DEV_TEST_TIME) {
+    const timeMatch = DEV_TEST_TIME.match(
+      /^(\d{1,2})[:：](\d{2})$/
+    );
+
+    if (timeMatch) {
+      testNow.setHours(
+        Number(timeMatch[1]),
+        Number(timeMatch[2]),
+        0,
+        0
+      );
+    }
+  }
 
   return testNow;
+}
+
+function getCollectionStatus(date = getCurrentTime()) {
+  const day = date.getDay();
+
+  // JavaScript：
+  // 0 = 星期日
+  // 3 = 星期三
+  if (day === 0 || day === 3) {
+    return {
+      isCollectionDay: false,
+      reasonCode: "REGULAR_NO_COLLECTION_DAY",
+      message: "今天是垃圾停收日，臺北市週三、週日例行停止垃圾收運。",
+    };
+  }
+
+  return {
+    isCollectionDay: true,
+    reasonCode: null,
+    message: "",
+  };
 }
 
 function initMap() {
@@ -282,12 +329,20 @@ function showUserOnMap(position) {
 
 function recommendCatchableTruck(position) {
   clearTruckRoute();
-  
+
   const now = getCurrentTime();
+  const collectionStatus = getCollectionStatus(now);
+
+  if (!collectionStatus.isCollectionDay) {
+    clearTruckMarkers();
+    renderNoCollectionDay(collectionStatus, now);
+    showMessage(collectionStatus.message);
+    return;
+  }
+
   const candidates = [];
 
   allStations.forEach((station) => {
-    
     const lat = Number(station.lat);
     const lng = Number(station.lng);
 
@@ -300,21 +355,37 @@ function recommendCatchableTruck(position) {
 
     if (leaveDate < now) return;
 
-    const distanceM = getDistanceMeters(position.lat, position.lng, lat, lng);
-    const walkingMinutes = Math.ceil(distanceM / WALKING_SPEED_M_PER_MIN);
-    const minutesUntilArrival = Math.floor((arrivalDate - now) / 60000);
-    const minutesUntilLeave = Math.floor((leaveDate - now) / 60000);
+    const distanceM = getDistanceMeters(
+      position.lat,
+      position.lng,
+      lat,
+      lng
+    );
+
+    const walkingMinutes = Math.ceil(
+      distanceM / WALKING_SPEED_M_PER_MIN
+    );
+
+    const minutesUntilArrival = Math.floor(
+      (arrivalDate - now) / 60000
+    );
+
+    const minutesUntilLeave = Math.floor(
+      (leaveDate - now) / 60000
+    );
 
     let canCatch = false;
 
-    // 情況 1：垃圾車還沒到，照原本邏輯判斷能不能趕上
     if (arrivalDate > now) {
-      canCatch = minutesUntilArrival >= walkingMinutes + CATCH_BUFFER_MIN;
+      canCatch =
+        minutesUntilArrival >=
+        walkingMinutes + CATCH_BUFFER_MIN;
     }
 
-    // 情況 2：垃圾車已到但尚未離站，仍可推薦
     if (arrivalDate <= now && leaveDate >= now) {
-      canCatch = walkingMinutes <= minutesUntilLeave + STOP_BUFFER_MIN;
+      canCatch =
+        walkingMinutes <=
+        minutesUntilLeave + STOP_BUFFER_MIN;
     }
 
     if (!canCatch) return;
@@ -335,22 +406,28 @@ function recommendCatchableTruck(position) {
     const aWait = Math.max(0, a.minutesUntilArrival);
     const bWait = Math.max(0, b.minutesUntilArrival);
 
-    return (aWait + a.walkingMinutes) - (bWait + b.walkingMinutes);
+    return (
+      aWait +
+      a.walkingMinutes -
+      (bWait + b.walkingMinutes)
+    );
   });
 
-  const results = candidates.slice(0, MAX_RECOMMENDATIONS);
+  const results = candidates.slice(
+    0,
+    MAX_RECOMMENDATIONS
+  );
 
-if (results.length === 0) {
-  clearTruckMarkers();
-  renderRecommendation([]);
-  showMessage("目前沒有找到 2 分鐘後可抵達的垃圾車。");
-  return;
-}
+  if (results.length === 0) {
+    clearTruckMarkers();
+    renderRecommendation([]);
+    showMessage("目前沒有找到可以及時抵達的垃圾車。");
+    return;
+  }
 
-renderRecommendation(results);
-showMessage(`已找到 ${results.length} 個推薦停靠點。`);
-
-showTrucksOnMap(results, position);
+  renderRecommendation(results);
+  showMessage(`已找到 ${results.length} 個推薦停靠點。`);
+  showTrucksOnMap(results, position);
 }
 
 function showTruckRoute(item) {
@@ -593,6 +670,35 @@ function updateRecommendationToggleButton() {
   button.setAttribute("aria-label", "隱藏路徑");
 }
 
+function renderNoCollectionDay(status, date) {
+  const box = document.getElementById("result");
+  if (!box) return;
+
+  const weekday = date.toLocaleDateString("zh-TW", {
+    weekday: "long",
+    timeZone: "Asia/Taipei",
+  });
+
+  box.innerHTML = `
+    <div class="no-collection-card">
+      <div class="no-collection-icon">🛑</div>
+
+      <div>
+        <h2>今天暫停收運</h2>
+
+        <p>
+          今天是${escapeHtml(weekday)}，臺北市週三、週日
+          例行停止垃圾收運。
+        </p>
+
+        <p class="no-collection-note">
+          請勿將垃圾放置於路邊，建議於下一個收運日再行丟棄。
+        </p>
+      </div>
+    </div>
+  `;
+}
+
 function renderRecommendation(results) {
   let box = document.getElementById("result");
   if (!box) return;
@@ -600,7 +706,7 @@ function renderRecommendation(results) {
   if (!results || results.length === 0) {
     box.innerHTML = `
       <h2>🚛 附近垃圾車</h2>
-      <p>目前附近沒有找到 2 分鐘後可抵達的垃圾車。</p>
+      <p>目前附近沒有找到可以及時抵達的垃圾車。</p>
     `;
     return;
   }

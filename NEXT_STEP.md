@@ -1,6 +1,4 @@
-# NEXT STEP
-
-Last Updated: 2026-07-09
+Last Updated: 2026-07-13
 
 ---
 
@@ -41,6 +39,13 @@ v1.3.3 — Developer Debug Mode
 - [ ] Debug Panel
 - [ ] 一鍵開關 Debug
 - [ ] 顯示演算法計算結果
+
+### Route UI
+
+- [ ] 優化「隱藏路徑」按鈕位置
+- [ ] 手機版按鈕位置最佳化
+- [ ] 與 Leaflet 控制項整合
+- [ ] 評估改為 Leaflet Control 樣式
 
 ---
 
