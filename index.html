@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>台北垃圾車即時查詢</title>
 
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#2e7d32">
+
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
   <link rel="stylesheet" href="style.css?v=120">
 <!-- Google tag (gtag.js) -->
@@ -55,8 +58,33 @@
   </div>
 
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-  
+
   <script src="script.js?v=120"></script>
-  <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAKHPmFjSg3vu0c7QUDcImysmikQ1l9gfo&loading=async"></script>
+
+  <script
+    async
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAKHPmFjSg3vu0c7QUDcImysmikQ1l9gfo&loading=async"
+  ></script>
+
+  <script>
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", function () {
+        navigator.serviceWorker
+          .register("./service-worker.js")
+          .then(function (registration) {
+            console.log(
+              "Service Worker registered:",
+              registration.scope
+            );
+          })
+          .catch(function (error) {
+            console.error(
+              "Service Worker registration failed:",
+              error
+            );
+          });
+      });
+    }
+  </script>
 </body>
 </html>
