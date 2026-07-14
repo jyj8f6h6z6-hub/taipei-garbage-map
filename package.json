@@ -1,0 +1,17 @@
+{
+  "name": "taipei-garbage-map",
+  "version": "1.5.0",
+  "private": true,
+  "description": "台北垃圾車即時查詢 PWA 與 iPhone App",
+  "scripts": {
+    "serve": "npx serve ."
+  },
+  "keywords": [
+    "taipei",
+    "garbage-truck",
+    "pwa",
+    "capacitor"
+  ],
+  "author": "",
+  "license": "UNLICENSED"
+}
