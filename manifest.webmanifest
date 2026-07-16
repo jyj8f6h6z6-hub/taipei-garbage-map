@@ -1,7 +1,7 @@
 {
   "id": "./",
-  "name": "台北垃圾車即時查詢",
-  "short_name": "台北垃圾車",
+  "name": "台北垃圾車收運點查詢",
+  "short_name": "垃圾車查詢"
   "description": "即時推薦最近可趕上的台北市垃圾車清運點",
   "lang": "zh-TW",
   "start_url": "./",

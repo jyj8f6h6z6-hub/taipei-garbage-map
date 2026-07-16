@@ -85,6 +85,17 @@ h1 {
   color: var(--text-main);
 }
 
+/* 英文副標題 */
+.subtitle {
+  margin-top: -6px;
+  margin-bottom: 18px;
+  color: #64748b;
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 header p {
   margin: 10px 0;
   color: var(--text-muted);
