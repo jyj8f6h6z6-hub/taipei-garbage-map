@@ -4,7 +4,7 @@ const CATCH_BUFFER_MIN = 0;
 const STOP_BUFFER_MIN = 5;
 const ROUTE_PREVIEW_MIN = 40;//推薦點後顯示多久時間
 
-const MAX_RECOMMENDATIONS = 10;// 推薦最多幾個停靠點
+const MAX_RECOMMENDATIONS = 20;// 推薦最多幾個停靠點
 
 // =========================
 // Developer Mode
