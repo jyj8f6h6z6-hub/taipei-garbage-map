@@ -4,13 +4,16 @@ const CATCH_BUFFER_MIN = 0;
 const STOP_BUFFER_MIN = 5;
 const ROUTE_PREVIEW_MIN = 40;//推薦點後顯示多久時間
 
-const MAX_RECOMMENDATIONS = 20;// 推薦最多幾個停靠點
+const MAX_RECOMMENDATIONS = 50;// 推薦最多幾個停靠點
+const RIDING_SPEED_M_PER_MIN = 275; // 騎車每分鐘約 275 公尺
+const MAX_DISTANCE_M = 3000;        // 最遠只搜尋 3 公里
+
 
 // =========================
 // Developer Mode
 // =========================
 // 測試完後要記得改回 false
-const DEV_MODE = false;
+const DEV_MODE = true;
 
 // 測試用假時間，格式 HH:mm
 const DEV_TEST_DATE = "2026-08-03";
@@ -340,6 +343,9 @@ function recommendCatchableTruck(position) {
     return;
   }
 
+  const MAX_DISTANCE_M = 3000;
+  const RIDING_SPEED_M_PER_MIN = 275;
+
   const candidates = [];
 
   allStations.forEach((station) => {
@@ -348,12 +354,17 @@ function recommendCatchableTruck(position) {
 
     if (!isValidLatLng(lat, lng)) return;
 
-    const arrivalDate = parseArrivalTimeToday(station.time, now);
-    const leaveDate = parseArrivalTimeToday(station.leaveTime, now);
+    const arrivalDate = parseArrivalTimeToday(
+      station.time,
+      now
+    );
+
+    const leaveDate = parseArrivalTimeToday(
+      station.leaveTime,
+      now
+    );
 
     if (!arrivalDate || !leaveDate) return;
-
-    if (leaveDate < now) return;
 
     const distanceM = getDistanceMeters(
       position.lat,
@@ -362,56 +373,73 @@ function recommendCatchableTruck(position) {
       lng
     );
 
-    const walkingMinutes = Math.ceil(
-      distanceM / WALKING_SPEED_M_PER_MIN
+    // 超過 3 公里，不顯示
+    if (distanceM > MAX_DISTANCE_M) return;
+
+    // 精確計算距離抵達還剩幾分鐘
+    const exactMinutesUntilArrival =
+      (arrivalDate.getTime() - now.getTime()) / 60000;
+
+    // 抵達時間已到，不顯示
+    if (exactMinutesUntilArrival <= 0) return;
+
+    // 依照剩餘時間，可騎到的最遠距離
+    const reachableDistanceM =
+      exactMinutesUntilArrival *
+      RIDING_SPEED_M_PER_MIN;
+
+    // 距離太遠，預估騎不到，不顯示
+    if (distanceM > reachableDistanceM) return;
+
+    // 畫面顯示用
+    const minutesUntilArrival = Math.ceil(
+      exactMinutesUntilArrival
     );
 
-    const minutesUntilArrival = Math.floor(
-      (arrivalDate - now) / 60000
+    const estimatedRidingMinutes = Math.ceil(
+      distanceM / RIDING_SPEED_M_PER_MIN
     );
-
-    const minutesUntilLeave = Math.floor(
-      (leaveDate - now) / 60000
-    );
-
-    let canCatch = false;
-
-    if (arrivalDate > now) {
-      canCatch =
-        minutesUntilArrival >=
-        walkingMinutes + CATCH_BUFFER_MIN;
-    }
-
-    if (arrivalDate <= now && leaveDate >= now) {
-      canCatch =
-        walkingMinutes <=
-        minutesUntilLeave + STOP_BUFFER_MIN;
-    }
-
-    if (!canCatch) return;
 
     candidates.push({
       station,
       lat,
       lng,
       distanceM,
-      walkingMinutes,
       minutesUntilArrival,
+      estimatedRidingMinutes,
+      reachableDistanceM,
       arrivalDate,
       leaveDate,
     });
   });
 
+  // 抵達時間早的排前面；
+  // 抵達時間相同時，距離近的排前面
   candidates.sort((a, b) => {
-    const aWait = Math.max(0, a.minutesUntilArrival);
-    const bWait = Math.max(0, b.minutesUntilArrival);
-
     return (
-      aWait +
-      a.walkingMinutes -
-      (bWait + b.walkingMinutes)
+      a.arrivalDate.getTime() -
+        b.arrivalDate.getTime() ||
+      a.distanceM - b.distanceM
     );
   });
+
+  console.log("目前時間：", now.toString());
+  console.log("符合騎車條件：", candidates.length);
+
+  console.table(
+    candidates.map((item) => ({
+      truck: item.station.truck,
+      time: item.station.time,
+      distanceM: Math.round(item.distanceM),
+      minutesUntilArrival:
+        item.minutesUntilArrival,
+      estimatedRidingMinutes:
+        item.estimatedRidingMinutes,
+      reachableDistanceM: Math.round(
+        item.reachableDistanceM
+      ),
+    }))
+  );
 
   const results = candidates.slice(
     0,
@@ -421,12 +449,18 @@ function recommendCatchableTruck(position) {
   if (results.length === 0) {
     clearTruckMarkers();
     renderRecommendation([]);
-    showMessage("目前沒有找到可以及時抵達的垃圾車。");
+    showMessage(
+      "目前 3 公里內沒有預估能騎到的垃圾車。"
+    );
     return;
   }
 
   renderRecommendation(results);
-  showMessage(`已找到 ${results.length} 個推薦停靠點。`);
+
+  showMessage(
+    `已找到 ${results.length} 個預估能騎到的停靠點。`
+  );
+
   showTrucksOnMap(results, position);
 }
 
@@ -545,11 +579,27 @@ function showTrucksOnMap(results, position) {
       .addTo(map)
       .bindPopup(`🚛 推薦停靠點 ${index + 1}`);
 
-    marker.on("click", () => {
-      const card = document.getElementById(
-        `recommend-card-${index}`
-      );
+    const card = document.getElementById(
+      `recommend-card-${index}`
+    );
 
+    // 共用動作：
+    // 點水滴或點左側卡片，都執行相同功能
+    const selectRecommendation = (event) => {
+      // 點 Google Maps 導航按鈕時，
+      // 不要另外觸發路徑切換
+      if (
+        event &&
+        event.target &&
+        event.target.closest("a")
+      ) {
+        return;
+      }
+
+      // 顯示水滴上的「推薦停靠點 N」
+      marker.openPopup();
+
+      // 左側卡片捲到畫面中
       if (card) {
         card.scrollIntoView({
           behavior: "smooth",
@@ -557,16 +607,30 @@ function showTrucksOnMap(results, position) {
         });
       }
 
-      const routeKey = `${item.station.truck}-${item.station.time}`;
+      const routeKey =
+        `${item.station.truck}-${item.station.time}`;
 
-      // 點擊同一點時，showTruckRoute() 會清除路徑
       if (currentRouteKey !== routeKey) {
         currentSelectedTruckMarker = marker;
         otherRecommendationMarkersHidden = false;
       }
 
+      // 顯示這班垃圾車的後續路徑
       showTruckRoute(item);
-    });
+    };
+
+    // 點地圖水滴
+    marker.on("click", selectRecommendation);
+
+    // 點左側推薦卡片
+    if (card) {
+      card.style.cursor = "pointer";
+
+      card.addEventListener(
+        "click",
+        selectRecommendation
+      );
+    }
 
     truckMarkers.push(marker);
     points.push([item.lat, item.lng]);
@@ -732,8 +796,9 @@ function renderRecommendation(results) {
           <p>💧 地址：${escapeHtml(address)}</p>
           <p>🚛 車號：${escapeHtml(truck)}</p>
           <p>🕒 抵達時間：${escapeHtml(arrivalTime)}</p>
+          <p>⏳ 距離抵達：約 ${result.minutesUntilArrival} 分鐘</p>
           <p>📏 距離：約 ${Math.round(result.distanceM)} 公尺</p>
-          <p>🚶 步行時間：約 ${result.walkingMinutes} 分鐘</p>
+          
           <p>
             <a href="${navUrl}" target="_blank" rel="noopener noreferrer">
               🧭 Google Maps 導航
