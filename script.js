@@ -13,13 +13,13 @@ const MAX_RECOMMENDATIONS = 10;// 推薦最多幾個停靠點
 const DEV_MODE = false;
 
 // 測試用假時間，格式 HH:mm
-const DEV_TEST_DATE = "2026-07-13";
-const DEV_TEST_TIME = "17:01";
+const DEV_TEST_DATE = "2026-08-03";
+const DEV_TEST_TIME = "22:00";
 
 // 假座標（之後會用）測試完記得改回null
 const DEV_TEST_POSITION = {
-  lat: 24.992362324899716, 
-  lng: 121.55878284206955,
+  lat: 24.992627476314986, 
+  lng: 121.55881830197364,
 };
 
 // 顯示 Debug 資訊（之後會用）
