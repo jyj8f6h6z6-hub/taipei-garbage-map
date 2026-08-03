@@ -13,11 +13,11 @@ const MAX_DISTANCE_M = 3000;        // 最遠只搜尋 3 公里
 // Developer Mode
 // =========================
 // 測試完後要記得改回 false
-const DEV_MODE = true;
+const DEV_MODE = false;
 
 // 測試用假時間，格式 HH:mm
 const DEV_TEST_DATE = "2026-08-03";
-const DEV_TEST_TIME = "22:00";
+const DEV_TEST_TIME = "16:00";
 
 // 假座標（之後會用）測試完記得改回null
 const DEV_TEST_POSITION = {
@@ -585,21 +585,11 @@ function showTrucksOnMap(results, position) {
 
     // 共用動作：
     // 點水滴或點左側卡片，都執行相同功能
-    const selectRecommendation = (event) => {
-      // 點 Google Maps 導航按鈕時，
-      // 不要另外觸發路徑切換
-      if (
-        event &&
-        event.target &&
-        event.target.closest("a")
-      ) {
-        return;
-      }
-
-      // 顯示水滴上的「推薦停靠點 N」
+    const selectRecommendation = () => {
+      // 顯示推薦點編號
       marker.openPopup();
 
-      // 左側卡片捲到畫面中
+      // 左側捲到對應卡片
       if (card) {
         card.scrollIntoView({
           behavior: "smooth",
@@ -615,21 +605,32 @@ function showTrucksOnMap(results, position) {
         otherRecommendationMarkersHidden = false;
       }
 
-      // 顯示這班垃圾車的後續路徑
+      // 顯示後續路徑
       showTruckRoute(item);
     };
 
     // 點地圖水滴
-    marker.on("click", selectRecommendation);
+    marker.on("click", () => {
+      selectRecommendation();
+    });
 
     // 點左側推薦卡片
     if (card) {
       card.style.cursor = "pointer";
 
-      card.addEventListener(
-        "click",
-        selectRecommendation
-      );
+      card.addEventListener("click", (event) => {
+        // 點 Google Maps 導航時，只開導航
+        const clickedLink =
+          event.target instanceof Element
+            ? event.target.closest("a")
+            : null;
+
+        if (clickedLink) {
+          return;
+        }
+
+        selectRecommendation();
+      });
     }
 
     truckMarkers.push(marker);
