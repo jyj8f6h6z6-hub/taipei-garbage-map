@@ -2,9 +2,9 @@
   "meta": {
     "source": "Taipei Open Data",
     "datasetId": "a6e90031-7ec4-4089-afb5-361a4efe7202",
-    "updatedAt": "2026-07-21T10:39:44.956942+00:00",
-    "totalDownloaded": 4007,
-    "totalValid": 4006
+    "updatedAt": "2026-08-02T10:16:34.288610+00:00",
+    "totalDownloaded": 4008,
+    "totalValid": 4007
   },
   "stations": [
     {
@@ -534,6 +534,18 @@
       "leaveTime": "1640",
       "lat": 25.11242,
       "lng": 121.53358
+    },
+    {
+      "name": "臺北市士林區天母東路82巷口",
+      "address": "臺北市士林區天母東路82巷口",
+      "district": "士林區",
+      "village": "三玉里",
+      "route": "天母-4",
+      "truck": "AAB-838",
+      "time": "1800",
+      "leaveTime": "1805",
+      "lat": 25.1182,
+      "lng": 121.53548
     },
     {
       "name": "臺北市士林區士東路200巷2號前",
@@ -31181,7 +31193,7 @@
       "time": "2146",
       "leaveTime": "2149",
       "lat": 25.00765,
-      "lng": 121.539191
+      "lng": 121.53919
     },
     {
       "name": "臺北市文山區萬盛街62號前",
