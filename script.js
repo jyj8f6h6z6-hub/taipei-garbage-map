@@ -4,7 +4,7 @@ const CATCH_BUFFER_MIN = 0;
 const STOP_BUFFER_MIN = 5;
 const ROUTE_PREVIEW_MIN = 40;//推薦點後顯示多久時間
 
-const MAX_RECOMMENDATIONS = 50;// 推薦最多幾個停靠點
+const MAX_RECOMMENDATIONS = 20;// 推薦最多幾個停靠點
 const RIDING_SPEED_M_PER_MIN = 275; // 騎車每分鐘約 275 公尺
 const MAX_DISTANCE_M = 3000;        // 最遠只搜尋 3 公里
 
@@ -13,16 +13,16 @@ const MAX_DISTANCE_M = 3000;        // 最遠只搜尋 3 公里
 // Developer Mode
 // =========================
 // 測試完後要記得改回 false
-const DEV_MODE = false;
+const DEV_MODE = false ;
 
 // 測試用假時間，格式 HH:mm
 const DEV_TEST_DATE = "2026-08-03";
-const DEV_TEST_TIME = "16:00";
+const DEV_TEST_TIME = "19:58";
 
 // 假座標（之後會用）測試完記得改回null
 const DEV_TEST_POSITION = {
-  lat: 24.992627476314986, 
-  lng: 121.55881830197364,
+  lat: 24.993156933279657,
+  lng: 121.56042900451732,
 };
 
 // 顯示 Debug 資訊（之後會用）
