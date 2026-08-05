@@ -343,9 +343,6 @@ function recommendCatchableTruck(position) {
     return;
   }
 
-  const MAX_DISTANCE_M = 3000;
-  const RIDING_SPEED_M_PER_MIN = 275;
-
   const candidates = [];
 
   allStations.forEach((station) => {
@@ -376,46 +373,74 @@ function recommendCatchableTruck(position) {
     // 超過 3 公里，不顯示
     if (distanceM > MAX_DISTANCE_M) return;
 
-    // 精確計算距離抵達還剩幾分鐘
+    // 精確計算距離抵達還剩幾分鐘// 距離垃圾車抵達與離開，分別還有幾分鐘
     const exactMinutesUntilArrival =
       (arrivalDate.getTime() - now.getTime()) / 60000;
 
-    // 抵達時間已到，不顯示
-    if (exactMinutesUntilArrival <= 0) return;
+    const exactMinutesUntilLeave =
+      (leaveDate.getTime() - now.getTime()) / 60000;
 
-    // 依照剩餘時間，可騎到的最遠距離
-    const reachableDistanceM =
-      exactMinutesUntilArrival *
-      RIDING_SPEED_M_PER_MIN;
+    // 垃圾車已經離開這個停靠點，才排除
+    if (exactMinutesUntilLeave <= 0) return;
 
-    // 距離太遠，預估騎不到，不顯示
-    if (distanceM > reachableDistanceM) return;
+    // 使用者前往停靠點所需的預估時間
+    const exactRidingMinutes =
+      distanceM / RIDING_SPEED_M_PER_MIN;
+
+    // 無法在垃圾車離開以前抵達，才排除
+    if (
+      exactRidingMinutes + CATCH_BUFFER_MIN >
+      exactMinutesUntilLeave
+    ) {
+      return;
+    }
 
     // 畫面顯示用
     const minutesUntilArrival = Math.ceil(
       exactMinutesUntilArrival
     );
 
-    const estimatedRidingMinutes = Math.ceil(
-      distanceM / RIDING_SPEED_M_PER_MIN
+    const minutesUntilLeave = Math.ceil(
+      exactMinutesUntilLeave
     );
 
+    const estimatedRidingMinutes = Math.ceil(
+      exactRidingMinutes
+    );
+
+    // 在垃圾車離開前，可以前往的最遠距離
+    const reachableDistanceM =
+      Math.max(0, exactMinutesUntilLeave - CATCH_BUFFER_MIN) *
+      RIDING_SPEED_M_PER_MIN;
+
     candidates.push({
-      station,
-      lat,
-      lng,
-      distanceM,
-      minutesUntilArrival,
-      estimatedRidingMinutes,
-      reachableDistanceM,
-      arrivalDate,
-      leaveDate,
-    });
+        station,
+        lat,
+        lng,
+        distanceM,
+        minutesUntilArrival,
+        minutesUntilLeave,
+        estimatedRidingMinutes,
+        reachableDistanceM,
+        exactMinutesUntilArrival,
+        arrivalDate,
+        leaveDate,
+      });
   });
 
   // 抵達時間早的排前面；
   // 抵達時間相同時，距離近的排前面
   candidates.sort((a, b) => {
+    const aIsCurrentlyStopped =
+      a.arrivalDate <= now && now < a.leaveDate;
+
+    const bIsCurrentlyStopped =
+      b.arrivalDate <= now && now < b.leaveDate;
+
+    if (aIsCurrentlyStopped !== bIsCurrentlyStopped) {
+      return aIsCurrentlyStopped ? -1 : 1;
+    }
+
     return (
       a.arrivalDate.getTime() -
         b.arrivalDate.getTime() ||
@@ -796,9 +821,38 @@ function renderRecommendation(results) {
           </h3>
           <p>💧 地址：${escapeHtml(address)}</p>
           <p>🚛 車號：${escapeHtml(truck)}</p>
-          <p>🕒 抵達時間：${escapeHtml(arrivalTime)}</p>
-          <p>⏳ 距離抵達：約 ${result.minutesUntilArrival} 分鐘</p>
-          <p>📏 距離：約 ${Math.round(result.distanceM)} 公尺</p>
+          <p>
+            🕒 停靠時間：
+            ${escapeHtml(arrivalTime)}
+            ～
+            ${escapeHtml(station.leaveTime || "未知")}
+          </p>
+
+          ${
+            result.minutesUntilArrival > 0
+              ? `
+                <p>
+                  ⏳ 垃圾車約 ${result.minutesUntilArrival} 分鐘後抵達
+                </p>
+              `
+              : `
+                <p>
+                  🚛 垃圾車目前可能正在此站停靠
+                </p>
+              `
+          }
+
+          <p>
+            🏁 距離離站：約 ${result.minutesUntilLeave} 分鐘
+          </p>
+
+          <p>
+            🛵 預估前往：約 ${result.estimatedRidingMinutes} 分鐘
+          </p>
+
+          <p>
+            📏 距離：約 ${Math.round(result.distanceM)} 公尺
+          </p>
           
           <p>
             <a href="${navUrl}" target="_blank" rel="noopener noreferrer">
