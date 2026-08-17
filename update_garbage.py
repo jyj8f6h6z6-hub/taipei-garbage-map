@@ -25,14 +25,39 @@ def fetch_page(offset):
 
     url = BASE_URL + "?" + urllib.parse.urlencode(params)
 
-    with urllib.request.urlopen(url) as response:
+    print(f"Fetching: {url}")
+
+    with urllib.request.urlopen(url, timeout=30) as response:
         data = json.loads(response.read().decode("utf-8"))
 
-    return data.get("result", {}).get("results", [])
+    print(f"Response type: {type(data).__name__}")
+
+    # 新格式：直接回傳陣列
+    if isinstance(data, list):
+        return data
+
+    # 舊格式
+    if isinstance(data, dict):
+        result = data.get("result", {})
+
+        if isinstance(result, dict):
+            records = result.get("results", [])
+            if isinstance(records, list):
+                return records
+
+        # 額外相容可能的 {"results": [...]}
+        records = data.get("results", [])
+        if isinstance(records, list):
+            return records
+
+    raise ValueError(
+        f"Unexpected API response format: {type(data).__name__}"
+    )
 
 
 all_records = []
 offset = 0
+previous_records = None
 
 while True:
     records = fetch_page(offset)
@@ -42,7 +67,16 @@ while True:
     if not records:
         break
 
+    # 防止 API 已不支援 offset，第二次又回傳完全相同資料
+    if previous_records is not None and records == previous_records:
+        print(
+            "API returned the same page again. "
+            "Stopping pagination to prevent duplicate records."
+        )
+        break
+
     all_records.extend(records)
+    previous_records = records
 
     if len(records) < PAGE_LIMIT:
         break
