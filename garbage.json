@@ -2,7 +2,7 @@
   "meta": {
     "source": "Taipei Open Data",
     "datasetId": "a6e90031-7ec4-4089-afb5-361a4efe7202",
-    "updatedAt": "2026-10-04T14:19:56.618022+00:00",
+    "updatedAt": "2026-10-05T17:21:27.450629+00:00",
     "totalDownloaded": 4012,
     "totalValid": 4012
   },
@@ -23411,7 +23411,7 @@
       "name": "臺北市內湖區瑞光路112巷50號對面",
       "address": "臺北市內湖區瑞光路112巷50號對面",
       "district": "內湖區",
-      "village": "瑞元里",
+      "village": "湖元里",
       "route": "文德-2",
       "truck": "AAB-279",
       "time": "2152",
