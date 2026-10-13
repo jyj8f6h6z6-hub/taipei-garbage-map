@@ -2,13 +2,13 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>台北垃圾車即時查詢</title>
   <meta name="description" content="找出你現在最快可以趕上的臺北市垃圾車停靠點，支援 GPS 定位與地址搜尋。">
+  <meta name="theme-color" content="#2563eb">
 
-  <!-- 鎖定 Leaflet 版本，避免哪天自動升級導致網站壞掉 -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-  <link rel="stylesheet" href="style.css?v=140">
+  <link rel="stylesheet" href="style.css?v=150">
 
   <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-W784GKJ76H"></script>
@@ -22,48 +22,64 @@
 
 <body>
   <div id="app">
+    <main id="mapArea">
+      <div id="map" aria-label="垃圾車地圖"></div>
+      <button id="hideRouteBtn" class="map-btn" type="button">✕ 隱藏路線</button>
+      <button id="recenterBtn" class="map-btn" type="button" aria-label="回到我的位置" title="回到我的位置">◎</button>
+    </main>
+
     <aside id="sidebar">
-      <header>
-        <h1>台北垃圾車即時查詢</h1>
-        <p id="dataStatus">資料載入中...</p>
-        <p>找出你現在最快可趕上的垃圾車清運點</p>
-
-        <div class="mode-toggle" role="group" aria-label="前往方式">
-          <button type="button" class="mode-btn" data-mode="walk" aria-pressed="true">🚶 步行</button>
-          <button type="button" class="mode-btn" data-mode="ride" aria-pressed="false">🛵 騎車</button>
-        </div>
-
-        <button id="locateBtn" type="button">📍 使用我的位置</button>
-
-        <div class="search-section">
-          <label for="addressSearch">搜尋地址或地標</label>
-
-          <div class="search-row">
-            <input
-              id="addressSearch"
-              type="text"
-              placeholder="台北車站、台北101、松山機場"
-              autocomplete="off"
-            />
-            <button id="addressSearchBtn" type="button">搜尋</button>
-          </div>
-
-          <div id="message" class="search-message" aria-live="polite"></div>
-        </div>
+      <header class="app-header">
+        <h1>🚛 台北垃圾車即時查詢</h1>
+        <p class="tagline">找出你現在最快趕得上的垃圾車</p>
+        <p id="dataStatus" class="data-status">資料載入中…</p>
       </header>
 
-      <section id="result">
-        <p>請點「使用我的位置」或搜尋地址</p>
-      </section>
-    </aside>
+      <section class="controls" aria-label="搜尋條件">
+        <div class="controls-row">
+          <div class="mode-toggle" role="group" aria-label="前往方式">
+            <button type="button" class="mode-btn" data-mode="walk" aria-pressed="true">🚶 步行</button>
+            <button type="button" class="mode-btn" data-mode="ride" aria-pressed="false">🛵 騎車</button>
+          </div>
+          <button id="locateBtn" type="button" class="primary-btn">📍 我的位置</button>
+        </div>
 
-    <main id="mapArea">
-      <div id="map"></div>
-    </main>
+        <form id="searchForm" class="search-form" role="search">
+          <label for="addressSearch" class="visually-hidden">搜尋地址或地標</label>
+          <input
+            id="addressSearch"
+            type="search"
+            enterkeyhint="search"
+            placeholder="或輸入地址、地標，例如：台北101"
+            autocomplete="off"
+          >
+          <button id="addressSearchBtn" type="submit" class="primary-btn">搜尋</button>
+        </form>
+
+        <p id="message" class="message is-info" aria-live="polite"></p>
+      </section>
+
+      <section id="result">
+        <div class="welcome">
+          <h2>三步驟找到垃圾車</h2>
+          <ol>
+            <li>選擇 <strong>步行</strong> 或 <strong>騎車</strong></li>
+            <li>按 <strong>我的位置</strong>，或搜尋地址</li>
+            <li>點卡片，看垃圾車接下來的路線</li>
+          </ol>
+          <p class="welcome-note">提醒：臺北市每週三、週日停收。</p>
+        </div>
+      </section>
+
+      <footer class="app-footer">
+        資料來源：臺北市資料大平臺，每日自動更新。<br>
+        時間僅供參考，實際以現場垃圾車為準。
+      </footer>
+    </aside>
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="script.js?v=140"></script>
+  <script src="script.js?v=150"></script>
   <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDHJ18rC0CuG4OGUbF-c4H7xavGoKOrTgw&loading=async"></script>
 </body>
 </html>

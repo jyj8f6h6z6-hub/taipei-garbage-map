@@ -1,5 +1,5 @@
 // =========================================================
-// 台北垃圾車即時查詢  script.js  v1.4.0
+// 台北垃圾車即時查詢  script.js  v1.5.0
 // =========================================================
 
 
@@ -8,7 +8,6 @@
 // =========================
 const DATA_URL = "./garbage.json";
 
-// 前往方式：步行 / 騎車
 const TRAVEL_MODES = {
   walk: {
     label: "步行",
@@ -20,7 +19,7 @@ const TRAVEL_MODES = {
   ride: {
     label: "騎車",
     icon: "🛵",
-    speedMPerMin: 275,     // 每分鐘約 275 公尺（約時速 16 公里）
+    speedMPerMin: 275,     // 每分鐘約 275 公尺
     maxDistanceM: 3000,    // 最遠搜尋 3 公里
     googleMode: "driving",
   },
@@ -31,8 +30,9 @@ const ARRIVE_BUFFER_MIN = 1;       // 至少要比垃圾車離開早幾分鐘到
 const MAX_RECOMMENDATIONS = 10;    // 最多推薦幾個停靠點
 const ROUTE_PREVIEW_MIN = 40;      // 點選後顯示之後幾分鐘的路線
 const SERVICE_DAY_START_HOUR = 5;  // 凌晨 5 點前，算是前一天的收運班次
+const AUTO_REFRESH_MS = 60 * 1000; // 每 60 秒自動更新
+const UPCOMING_SUGGESTIONS = 3;    // 沒有班次時，列出下一個收運日幾個最近的停靠點
 
-// 臺北市大致範圍（用來排除錯誤座標）
 const TAIPEI_BOUNDS = {
   minLat: 24.95,
   maxLat: 25.22,
@@ -49,12 +49,8 @@ const WEEKDAY_INDEX = { 日: 0, 一: 1, 二: 2, 三: 3, 四: 4, 五: 5, 六: 6 }
 // =========================
 // ⚠️ 測試完記得改回 false 再上傳
 const DEV_MODE = false;
-
-// 測試用日期（YYYY-MM-DD）與時間（HH:mm）
 const DEV_TEST_DATE = "2026-08-03";
 const DEV_TEST_TIME = "19:58";
-
-// 測試用座標（不想用假座標就設成 null）
 const DEV_TEST_POSITION = {
   lat: 24.993156933279657,
   lng: 121.56042900451732,
@@ -71,6 +67,7 @@ let routeLine = null;
 let routeMarkers = [];
 let currentRouteKey = null;
 let allStations = [];
+let currentResults = [];
 let userPosition = null;
 let travelMode = loadTravelMode();
 
@@ -85,10 +82,12 @@ async function init() {
   bindEvents();
   updateModeButtons();
   await loadGarbageData();
+  startAutoRefresh();
+  autoLocateIfPermitted();
 }
 
 function initMap() {
-  map = L.map("map").setView([25.033964, 121.564468], 13);
+  map = L.map("map").setView([25.04, 121.55], 13);
 
   L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
     maxZoom: 19,
@@ -100,18 +99,58 @@ function initMap() {
 
 function bindEvents() {
   document.getElementById("locateBtn")?.addEventListener("click", locateUser);
-  document.getElementById("addressSearchBtn")?.addEventListener("click", handleAddressSearch);
 
-  document.getElementById("addressSearch")?.addEventListener("keydown", (event) => {
-    // isComposing：注音輸入法正在選字時按 Enter，不要觸發搜尋
-    if (event.key === "Enter" && !event.isComposing) {
-      handleAddressSearch();
-    }
+  // 用 form 的 submit：按 Enter 或手機鍵盤的「搜尋」都會觸發，注音選字時不會誤觸
+  document.getElementById("searchForm")?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    handleAddressSearch();
   });
 
   document.querySelectorAll(".mode-btn").forEach((btn) => {
     btn.addEventListener("click", () => setTravelMode(btn.dataset.mode));
   });
+
+  document.getElementById("recenterBtn")?.addEventListener("click", recenterMap);
+  document.getElementById("hideRouteBtn")?.addEventListener("click", clearTruckRoute);
+
+  const resultBox = document.getElementById("result");
+  resultBox?.addEventListener("click", handleResultClick);
+  resultBox?.addEventListener("keydown", handleResultKeydown);
+}
+
+// 結果區所有點擊集中處理（卡片、切換騎車、重新整理）
+function handleResultClick(event) {
+  const target = event.target instanceof Element ? event.target : null;
+  if (!target || target.closest("a")) return; // 點導航連結就交給瀏覽器
+
+  const el = target.closest("[data-action]");
+  if (!el) return;
+
+  switch (el.dataset.action) {
+    case "select":
+      selectRecommendation(Number(el.dataset.index), true);
+      break;
+    case "switch-ride":
+      setTravelMode("ride");
+      break;
+    case "refresh":
+      refreshRecommendation(true);
+      break;
+  }
+}
+
+// 鍵盤操作：卡片上按 Enter 或空白鍵
+function handleResultKeydown(event) {
+  if (event.key !== "Enter" && event.key !== " ") return;
+
+  const card = event.target instanceof Element
+    ? event.target.closest('[data-action="select"]')
+    : null;
+
+  if (!card || event.target !== card) return;
+
+  event.preventDefault();
+  selectRecommendation(Number(card.dataset.index), true);
 }
 
 
@@ -123,7 +162,7 @@ function loadTravelMode() {
     const saved = localStorage.getItem("travelMode");
     if (saved && TRAVEL_MODES[saved]) return saved;
   } catch (e) {
-    // 無痕模式等情況可能無法使用 localStorage，忽略即可
+    // 無痕模式可能無法使用 localStorage
   }
   return DEFAULT_TRAVEL_MODE;
 }
@@ -142,7 +181,8 @@ function setTravelMode(mode) {
   updateModeButtons();
 
   if (userPosition) {
-    recommendCatchableTruck(userPosition);
+    const result = recommendCatchableTruck(userPosition);
+    showMessage(`已切換為${TRAVEL_MODES[mode].label}｜${result.text}`, result.type);
   }
 }
 
@@ -177,7 +217,7 @@ function getCurrentTime() {
   return testNow;
 }
 
-// 「收運日」：凌晨 5 點前還算前一天（例如週二晚上的車，開到週三 00:10）
+// 「收運日」：凌晨 5 點前還算前一天
 function getServiceDate(now) {
   const d = new Date(now);
   if (d.getHours() < SERVICE_DAY_START_HOUR) {
@@ -187,7 +227,7 @@ function getServiceDate(now) {
   return d;
 }
 
-// 把 "1630"、"2410"、"16:30" 轉成實際日期時間
+// "1630"、"2410"、"16:30" → 實際日期時間
 function parseScheduleTime(timeText, serviceDate) {
   const match = String(timeText || "").trim().match(/^(\d{1,2})[:：]?(\d{2})$/);
   if (!match) return null;
@@ -196,16 +236,14 @@ function parseScheduleTime(timeText, serviceDate) {
   const minute = Number(match[2]);
 
   if (minute > 59 || hour > 29) return null;
-
-  // 例如 "0010" 也視為收運日當晚的 24:10
   if (hour < SERVICE_DAY_START_HOUR) hour += 24;
 
   const date = new Date(serviceDate);
-  date.setHours(hour, minute, 0, 0); // setHours(24, 10) 會自動進位到隔天 00:10
+  date.setHours(hour, minute, 0, 0);
   return date;
 }
 
-// 把 "2410" 顯示成 "00:10"
+// "2410" → "00:10"
 function formatScheduleTime(timeText) {
   const match = String(timeText || "").trim().match(/^(\d{1,2})[:：]?(\d{2})$/);
   if (!match) return timeText || "未知";
@@ -214,11 +252,28 @@ function formatScheduleTime(timeText) {
   return `${String(hour).padStart(2, "0")}:${match[2]}`;
 }
 
-function formatDateTime(value) {
-  if (!value) return "未知";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString("zh-TW", { timeZone: "Asia/Taipei" });
+// Date → "18:10"
+function formatClock(date) {
+  return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+}
+
+// → "明天（週四）"
+function getRelativeDayLabel(date, now) {
+  const today = new Date(now);
+  today.setHours(0, 0, 0, 0);
+
+  const target = new Date(date);
+  target.setHours(0, 0, 0, 0);
+
+  const diff = Math.round((target - today) / 86400000);
+
+  let relative;
+  if (diff <= 0) relative = "今天";
+  else if (diff === 1) relative = "明天";
+  else if (diff === 2) relative = "後天";
+  else relative = `${diff} 天後`;
+
+  return `${relative}（週${WEEKDAY_NAMES[target.getDay()]}）`;
 }
 
 
@@ -240,28 +295,18 @@ function getCollectionStatus(serviceDate, now) {
     nextDate.setDate(nextDate.getDate() + 1);
   } while (!isRegularCollectionDay(nextDate));
 
-  const today = new Date(now);
-  today.setHours(0, 0, 0, 0);
-  const daysAhead = Math.round((nextDate - today) / 86400000);
-
-  let relative;
-  if (daysAhead <= 0) relative = "今天";
-  else if (daysAhead === 1) relative = "明天";
-  else if (daysAhead === 2) relative = "後天";
-  else relative = `${daysAhead} 天後`;
-
   const weekdayName = WEEKDAY_NAMES[serviceDate.getDay()];
-  const nextWeekdayName = WEEKDAY_NAMES[nextDate.getDay()];
+  const nextLabel = getRelativeDayLabel(nextDate, now);
 
   return {
     isCollectionDay: false,
     weekdayName,
-    nextLabel: `${relative}（週${nextWeekdayName}）`,
-    message: `今天是週${weekdayName}，臺北市例行停收；下一次收運是${relative}（週${nextWeekdayName}）。`,
+    nextLabel,
+    message: `今天週${weekdayName}停收，下一次收運是${nextLabel}。`,
   };
 }
 
-// 解析地點名稱裡的「週一、週四收運」「週二、週五無收運」「每星期一、四收運」
+// 解析「週一、週四收運」「週二、週五無收運」「每星期一、四收運」
 function parseWeekdayRule(name) {
   const match = String(name || "").match(
     /(?:每)?(?:週|星期)((?:[一二三四五六日]|、|週|星期)+?)(無)?收運/
@@ -302,25 +347,23 @@ async function loadGarbageData() {
     }
 
     renderMeta(data);
-    showMessage(`資料載入完成，共 ${allStations.length} 個停靠點。`);
   } catch (err) {
     console.error("Failed to load garbage data:", err);
 
     const info = document.getElementById("dataStatus");
     if (info) info.textContent = "資料載入失敗";
 
-    showMessage("資料載入失敗，請稍後重新整理頁面。");
+    showMessage("資料載入失敗，請稍後重新整理頁面。", "error");
   }
 }
 
-// 整理每一筆停靠點資料，修正或排除錯誤座標
 function normalizeStation(raw) {
   let lat = Number(raw.lat);
   let lng = Number(raw.lng);
 
   if (!isInTaipei(lat, lng)) {
     if (isInTaipei(lng, lat)) {
-      [lat, lng] = [lng, lat]; // 經緯度對調，換回來
+      [lat, lng] = [lng, lat];
     } else {
       return null;
     }
@@ -357,54 +400,127 @@ function renderMeta(data) {
   const info = document.getElementById("dataStatus");
   if (!info) return;
 
-  const updatedAt = data?.meta?.updatedAt;
+  const updatedAt = data?.meta?.updatedAt ? new Date(data.meta.updatedAt) : null;
 
-  info.innerHTML = `
-    資料最後更新：${escapeHtml(formatDateTime(updatedAt))}<br>
-    共 ${allStations.length} 個停靠點
-  `;
+  const timeText =
+    updatedAt && !Number.isNaN(updatedAt.getTime())
+      ? updatedAt.toLocaleString("zh-TW", {
+          timeZone: "Asia/Taipei",
+          month: "numeric",
+          day: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
+        })
+      : "未知";
+
+  info.textContent = `資料更新：${timeText}・${allStations.length} 個停靠點`;
+}
+
+
+// =========================
+// 自動更新
+// =========================
+function startAutoRefresh() {
+  setInterval(() => {
+    if (!document.hidden) refreshRecommendation();
+  }, AUTO_REFRESH_MS);
+
+  // 從其他 App 切回來時立刻更新
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) refreshRecommendation();
+  });
+}
+
+function refreshRecommendation(manual = false) {
+  if (!userPosition) return;
+
+  const result = recommendCatchableTruck(userPosition, {
+    fitMap: false,
+    keepRoute: true,
+  });
+
+  if (manual) {
+    showMessage(`已更新｜${result.text}`, result.type);
+  }
 }
 
 
 // =========================
 // 定位 / 地址搜尋
 // =========================
+// 使用者之前已允許定位，就自動定位
+async function autoLocateIfPermitted() {
+  if (DEV_MODE || !navigator.permissions?.query) return;
+
+  try {
+    const permission = await navigator.permissions.query({ name: "geolocation" });
+    if (permission.state === "granted") locateUser();
+  } catch (e) {
+    // 部分瀏覽器不支援，忽略
+  }
+}
+
 function locateUser() {
   if (DEV_MODE && DEV_TEST_POSITION) {
-    userPosition = DEV_TEST_POSITION;
-    showUserOnMap(userPosition);
-    const summary = recommendCatchableTruck(userPosition);
-    showMessage(`🧪 Developer Mode：使用假座標｜${summary}`);
+    setUserPosition(DEV_TEST_POSITION, "🧪 測試座標");
     return;
   }
 
   if (!navigator.geolocation) {
-    showMessage("此瀏覽器不支援定位功能，請改用地址搜尋。");
+    showMessage("此瀏覽器不支援定位，請改用地址搜尋。", "error");
     return;
   }
 
-  showMessage("正在取得你的位置...");
+  const btn = document.getElementById("locateBtn");
+  setButtonBusy(btn, true, "定位中…");
+  showMessage("正在取得你的位置…");
 
   navigator.geolocation.getCurrentPosition(
     (pos) => {
-      userPosition = {
-        lat: pos.coords.latitude,
-        lng: pos.coords.longitude,
-      };
-
-      showUserOnMap(userPosition);
-      recommendCatchableTruck(userPosition);
+      setButtonBusy(btn, false);
+      setUserPosition(
+        { lat: pos.coords.latitude, lng: pos.coords.longitude },
+        "📍 你的位置"
+      );
     },
     (err) => {
+      setButtonBusy(btn, false);
       console.error(err);
-      showMessage("無法取得定位，請確認瀏覽器定位權限已開啟，或改用地址搜尋。");
+      showMessage(getGeoErrorMessage(err), "error");
     },
     {
       enableHighAccuracy: true,
       timeout: 10000,
-      maximumAge: 0,
+      maximumAge: 30000,
     }
   );
+}
+
+function getGeoErrorMessage(err) {
+  switch (err && err.code) {
+    case 1:
+      return "定位權限被拒絕。請點網址列左側的圖示開啟定位，或改用地址搜尋。";
+    case 2:
+      return "目前收不到定位訊號，請稍後再試，或改用地址搜尋。";
+    case 3:
+      return "定位逾時，請再按一次，或改用地址搜尋。";
+    default:
+      return "無法取得定位，請改用地址搜尋。";
+  }
+}
+
+function setUserPosition(position, label) {
+  if (!isInTaipei(position.lat, position.lng)) {
+    showMessage("這個位置不在臺北市範圍內，請改用地址搜尋臺北市的地點。", "warn");
+    return;
+  }
+
+  userPosition = position;
+  showUserOnMap(position, label);
+
+  const result = recommendCatchableTruck(position);
+  showMessage(`${label}｜${result.text}`, result.type);
 }
 
 async function getGeocoderClass() {
@@ -420,16 +536,19 @@ async function handleAddressSearch() {
   const keyword = input.value.trim();
 
   if (!keyword) {
-    showMessage("請輸入地址或地標。");
+    showMessage("請輸入地址或地標。", "warn");
+    input.focus();
     return;
   }
 
   if (typeof google === "undefined" || !google.maps) {
-    showMessage("地圖服務還在載入中，請稍等幾秒再試。");
+    showMessage("地圖服務還在載入中，請稍等幾秒再試。", "warn");
     return;
   }
 
-  showMessage("正在搜尋地址...");
+  const btn = document.getElementById("addressSearchBtn");
+  setButtonBusy(btn, true, "搜尋中");
+  showMessage("正在搜尋地址…");
 
   try {
     const Geocoder = await getGeocoderClass();
@@ -444,7 +563,7 @@ async function handleAddressSearch() {
     });
 
     if (!results || results.length === 0) {
-      showMessage("找不到這個地址，請試著輸入更完整的地址。");
+      showMessage("找不到這個地址，請試著輸入更完整的地址。", "warn");
       return;
     }
 
@@ -454,28 +573,26 @@ async function handleAddressSearch() {
       lng: place.geometry.location.lng(),
     };
 
-    if (!isInTaipei(position.lat, position.lng)) {
-      showMessage("搜尋結果不在臺北市範圍內，請輸入臺北市的地址或地標。");
-      return;
-    }
+    const placeName = (place.formatted_address || keyword)
+      .replace(/^\d+/, "")
+      .replace(/^台灣/, "");
 
-    userPosition = position;
-    showUserOnMap(position);
-
-    const summary = recommendCatchableTruck(position);
-    showMessage(`📍 ${place.formatted_address || keyword}｜${summary}`);
+    input.blur(); // 手機收起鍵盤
+    setUserPosition(position, `📍 ${placeName}`);
   } catch (err) {
     console.error("Address search failed:", err);
 
     if (err && err.code === "ZERO_RESULTS") {
-      showMessage("找不到這個地址，請試著輸入更完整的地址。");
+      showMessage("找不到這個地址，請試著輸入更完整的地址。", "warn");
     } else {
-      showMessage("地址搜尋失敗，請稍後再試。");
+      showMessage("地址搜尋失敗，請稍後再試。", "error");
     }
+  } finally {
+    setButtonBusy(btn, false);
   }
 }
 
-function showUserOnMap(position) {
+function showUserOnMap(position, label) {
   if (userMarker) {
     map.removeLayer(userMarker);
   }
@@ -483,33 +600,52 @@ function showUserOnMap(position) {
   userMarker = L.marker([position.lat, position.lng], {
     icon: createUserIcon(),
     zIndexOffset: 1000,
+    keyboard: false,
   })
     .addTo(map)
-    .bindPopup("📍 你的位置");
+    .bindPopup(escapeHtml(label));
 
-  map.setView([position.lat, position.lng], 16);
+  document.getElementById("recenterBtn")?.classList.add("is-visible");
+}
+
+function recenterMap() {
+  if (!userPosition) return;
+
+  const points = [
+    [userPosition.lat, userPosition.lng],
+    ...currentResults.map((item) => [item.station.lat, item.station.lng]),
+  ];
+
+  if (points.length > 1) {
+    map.fitBounds(L.latLngBounds(points), { padding: [50, 50], maxZoom: 17 });
+  } else {
+    map.setView(points[0], 16);
+  }
 }
 
 
 // =========================
 // 推薦演算法
 // =========================
-// 回傳一句摘要文字，方便呼叫端顯示
-function recommendCatchableTruck(position) {
+// 回傳 { text, type }，讓呼叫端決定要不要顯示訊息
+function recommendCatchableTruck(position, { fitMap = true, keepRoute = false } = {}) {
+  const previousRouteKey = keepRoute ? currentRouteKey : null;
   clearTruckRoute();
 
   const now = getCurrentTime();
   const serviceDate = getServiceDate(now);
   const status = getCollectionStatus(serviceDate, now);
+  const mode = TRAVEL_MODES[travelMode];
 
+  // 停收日
   if (!status.isCollectionDay) {
     clearTruckMarkers();
-    renderNoCollectionDay(status);
-    showMessage(status.message);
-    return status.message;
+    currentResults = [];
+    renderNoCollectionDay(status, findUpcomingStations(position, serviceDate, mode, now));
+    if (fitMap) map.setView([position.lat, position.lng], 15);
+    return { text: status.message, type: "warn" };
   }
 
-  const mode = TRAVEL_MODES[travelMode];
   const candidates = [];
 
   for (const station of allStations) {
@@ -524,13 +660,9 @@ function recommendCatchableTruck(position) {
 
     const minutesUntilArrival = (arrivalDate - now) / 60000;
     const minutesUntilLeave = (leaveDate - now) / 60000;
-
-    // 垃圾車已經離開
     if (minutesUntilLeave <= 0) continue;
 
     const travelMinutes = distanceM / mode.speedMPerMin;
-
-    // 來不及在離開前趕到
     if (travelMinutes + ARRIVE_BUFFER_MIN > minutesUntilLeave) continue;
 
     candidates.push({
@@ -539,20 +671,16 @@ function recommendCatchableTruck(position) {
       minutesUntilArrival,
       minutesUntilLeave,
       travelMinutes,
-      // 最快幾分鐘後可以丟垃圾 = 走到的時間 與 車到的時間 取較晚者
       doneMinutes: Math.max(travelMinutes, minutesUntilArrival),
-      // 到了之後還要等多久
       waitMinutes: Math.max(0, minutesUntilArrival - travelMinutes),
-      // 離開前還剩多少餘裕
       slackMinutes: minutesUntilLeave - travelMinutes,
       isStoppedNow: minutesUntilArrival <= 0,
     });
   }
 
-  // 依「最快可以丟垃圾的時間」排序，一樣快就比距離
   candidates.sort((a, b) => a.doneMinutes - b.doneMinutes || a.distanceM - b.distanceM);
 
-  // 同一個地點只保留最好的一班
+  // 同一地點只保留最好的一班
   const seen = new Set();
   const results = [];
 
@@ -564,103 +692,215 @@ function recommendCatchableTruck(position) {
     if (results.length >= MAX_RECOMMENDATIONS) break;
   }
 
+  currentResults = results;
+
+  // 沒有班次
   if (results.length === 0) {
     clearTruckMarkers();
-    renderEmptyRecommendation(mode);
-    const msg = `目前${mode.label}範圍內沒有來得及趕上的垃圾車。`;
-    showMessage(msg);
-    return msg;
+    renderEmptyRecommendation(mode, findUpcomingStations(position, serviceDate, mode, now), now);
+    if (fitMap) map.setView([position.lat, position.lng], 15);
+    return { text: `${mode.label}範圍內暫時沒有趕得上的垃圾車。`, type: "warn" };
   }
 
-  renderRecommendation(results, mode);
-  showTrucksOnMap(results, position);
+  renderRecommendation(results, mode, now);
+  showTrucksOnMap(results, position, fitMap);
 
-  const msg = `已找到 ${results.length} 個${mode.label}來得及的停靠點。`;
-  showMessage(msg);
-  return msg;
+  // 自動更新時，保留原本打開的路線
+  if (previousRouteKey) {
+    const index = results.findIndex((item) => getRouteKey(item.station) === previousRouteKey);
+    if (index >= 0) {
+      showTruckRoute(results[index], { fit: false });
+      highlightCard(index, false);
+    }
+  }
+
+  return { text: `找到 ${results.length} 個${mode.label}來得及的停靠點。`, type: "success" };
+}
+
+// 找下一個收運日，離使用者最近的幾個停靠點
+function findUpcomingStations(position, serviceDate, mode, now) {
+  for (let offset = 1; offset <= 7; offset++) {
+    const date = new Date(serviceDate);
+    date.setDate(date.getDate() + offset);
+
+    if (!isRegularCollectionDay(date)) continue;
+
+    const items = [];
+
+    for (const station of allStations) {
+      if (!isStationActiveOn(station, date)) continue;
+
+      const arrival = parseScheduleTime(station.time, date);
+      if (!arrival) continue;
+
+      const distanceM = getDistanceMeters(position.lat, position.lng, station.lat, station.lng);
+      if (distanceM > mode.maxDistanceM) continue;
+
+      items.push({ station, arrival, distanceM });
+    }
+
+    if (items.length === 0) continue;
+
+    items.sort((a, b) => a.distanceM - b.distanceM || a.arrival - b.arrival);
+
+    const seen = new Set();
+    const picked = [];
+
+    for (const item of items) {
+      const key = `${item.station.lat.toFixed(5)},${item.station.lng.toFixed(5)}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      picked.push(item);
+      if (picked.length >= UPCOMING_SUGGESTIONS) break;
+    }
+
+    return { label: getRelativeDayLabel(date, now), items: picked };
+  }
+
+  return null;
 }
 
 
 // =========================
-// 畫面：推薦卡片
+// 畫面：結果區
 // =========================
-function renderRecommendation(results, mode) {
+function renderResultHeader(title, now) {
+  return `
+    <div class="result-header">
+      <h2>${title}</h2>
+      <button type="button" class="refresh-btn" data-action="refresh" title="重新計算">
+        🔄 ${formatClock(now)}
+      </button>
+    </div>
+  `;
+}
+
+function renderRecommendation(results, mode, now) {
   const box = document.getElementById("result");
   if (!box) return;
 
   box.innerHTML = `
-    <h2>🚛 附近垃圾車</h2>
-    ${results.map((item, index) => renderCard(item, index, mode)).join("")}
+    ${renderResultHeader("附近垃圾車", now)}
+    <p class="result-hint">依「最快可以丟垃圾」排序・點卡片看路線</p>
+    <div class="card-list">
+      ${results.map((item, index) => renderCard(item, index, mode, now)).join("")}
+    </div>
   `;
 }
 
-function renderCard(item, index, mode) {
+function renderCard(item, index, mode, now) {
   const station = item.station;
+  const shortAddress = formatShortAddress(station.address);
 
   const navUrl =
     "https://www.google.com/maps/dir/?api=1" +
     `&destination=${station.lat},${station.lng}` +
     `&travelmode=${mode.googleMode}`;
 
-  const doneText =
-    item.doneMinutes < 1
-      ? "現在出發就趕得上"
-      : `約 ${Math.ceil(item.doneMinutes)} 分鐘後可以丟垃圾`;
-
-  const waitText =
+  const doneAt = formatClock(new Date(now.getTime() + item.doneMinutes * 60000));
+  const etaMain = item.doneMinutes < 1 ? "現在出發" : `${Math.ceil(item.doneMinutes)} 分鐘後`;
+  const etaSub =
     item.waitMinutes >= 1
-      ? `<span class="card-sub">（到了大約要等 ${Math.ceil(item.waitMinutes)} 分鐘）</span>`
-      : "";
+      ? `約 ${doneAt} 可以丟・到了等 ${Math.ceil(item.waitMinutes)} 分鐘`
+      : `約 ${doneAt} 可以丟・到了不用等`;
 
   const statusText = item.isStoppedNow
-    ? "🟢 垃圾車目前正在這裡停靠"
-    : `⏳ 垃圾車約 ${Math.ceil(item.minutesUntilArrival)} 分鐘後抵達`;
+    ? `🟢 正在停靠，約 ${Math.ceil(item.minutesUntilLeave)} 分鐘後離開`
+    : `⏳ ${Math.ceil(item.minutesUntilArrival)} 分鐘後抵達，停到 ${formatScheduleTime(station.leaveTime)}`;
 
-  const hurryText =
-    item.slackMinutes < 3
-      ? `<p class="card-warning">⚠️ 時間有點趕，建議馬上出發</p>`
-      : "";
+  const warning =
+    item.slackMinutes < 3 ? `<p class="card-warning">⚠️ 時間很趕，建議馬上出發</p>` : "";
 
-  const routeText = station.route ? `（${escapeHtml(station.route)}）` : "";
+  const meta = [station.district, station.route].filter(Boolean).join("・");
 
   return `
-    <div class="recommend-card" id="recommend-card-${index}">
-      <h3>${index === 0 ? "🏆 最佳推薦" : `#${index + 1}`}</h3>
+    <article
+      class="recommend-card${index === 0 ? " is-best" : ""}"
+      data-action="select"
+      data-index="${index}"
+      tabindex="0"
+      role="button"
+      aria-pressed="false"
+      aria-label="第 ${index + 1} 名：${escapeHtml(shortAddress)}，${etaMain}可以丟垃圾"
+    >
+      <div class="card-top">
+        <span class="card-rank">${index + 1}</span>
+        <div class="card-eta">
+          <strong>${etaMain}</strong>
+          <span>${etaSub}</span>
+        </div>
+        ${index === 0 ? '<span class="card-badge">最佳</span>' : ""}
+      </div>
 
-      <p class="card-highlight">✅ ${doneText}${waitText}</p>
-      ${hurryText}
+      ${warning}
 
-      <p>📍 ${escapeHtml(station.address)}</p>
-      <p>🚛 車號：${escapeHtml(station.truck)}${routeText}</p>
-      <p>🕒 停靠時間：${escapeHtml(formatScheduleTime(station.time))} ～ ${escapeHtml(formatScheduleTime(station.leaveTime))}</p>
-      <p>${statusText}</p>
-      <p>🏁 約 ${Math.ceil(item.minutesUntilLeave)} 分鐘後離開</p>
-      <p>${mode.icon} ${mode.label}約 ${Math.ceil(item.travelMinutes)} 分鐘（${formatDistance(item.distanceM)}）</p>
+      <p class="card-address">${escapeHtml(shortAddress)}</p>
+      ${meta ? `<p class="card-meta">${escapeHtml(meta)}</p>` : ""}
 
-      <a href="${navUrl}" target="_blank" rel="noopener noreferrer">
-        🧭 Google Maps 導航
-      </a>
+      <div class="card-chips">
+        <span class="chip">${mode.icon} ${Math.ceil(item.travelMinutes)} 分・${formatDistance(item.distanceM)}</span>
+        <span class="chip">🕒 ${formatScheduleTime(station.time)}–${formatScheduleTime(station.leaveTime)}</span>
+        <span class="chip">🚛 ${escapeHtml(station.truck)}</span>
+      </div>
+
+      <p class="card-status">${statusText}</p>
+
+      <div class="card-actions">
+        <a class="nav-btn" href="${navUrl}" target="_blank" rel="noopener noreferrer">🧭 Google 導航</a>
+        <span class="route-hint">
+          <span class="hint-show">🗺️ 看路線</span>
+          <span class="hint-hide">收合路線</span>
+        </span>
+      </div>
+    </article>
+  `;
+}
+
+function renderUpcoming(upcoming) {
+  if (!upcoming || upcoming.items.length === 0) return "";
+
+  return `
+    <div class="upcoming">
+      <h3>${escapeHtml(upcoming.label)}離你最近的停靠點</h3>
+      <ul>
+        ${upcoming.items
+          .map(
+            (item) => `
+              <li>
+                <span class="upcoming-time">${formatScheduleTime(item.station.time)}</span>
+                <span class="upcoming-place">${escapeHtml(formatShortAddress(item.station.address))}</span>
+                <span class="upcoming-dist">${formatDistance(item.distanceM)}</span>
+              </li>
+            `
+          )
+          .join("")}
+      </ul>
     </div>
   `;
 }
 
-function renderEmptyRecommendation(mode) {
+function renderEmptyRecommendation(mode, upcoming, now) {
   const box = document.getElementById("result");
   if (!box) return;
 
-  const tip =
+  const switchButton =
     travelMode === "walk"
-      ? "可以試試切換成「🛵 騎車」，搜尋範圍會擴大到 3 公里。"
-      : "可能已經過了今天的收運時間，或附近暫時沒有班次。";
+      ? `<button type="button" class="secondary-btn" data-action="switch-ride">🛵 改用騎車搜尋 3 公里內</button>`
+      : "";
 
   box.innerHTML = `
-    <h2>🚛 附近垃圾車</h2>
-    <p>目前${escapeHtml(mode.label)}範圍內（${formatDistance(mode.maxDistanceM)}），沒有來得及趕上的垃圾車。</p>
-    <p class="empty-tip">${tip}</p>
+    ${renderResultHeader("附近垃圾車", now)}
+    <div class="empty-state">
+      <div class="empty-icon">🌙</div>
+      <h3>附近暫時沒有趕得上的垃圾車</h3>
+      <p>${escapeHtml(mode.label)}範圍（${formatDistance(mode.maxDistanceM)}）內，今天的班次已結束或來不及。</p>
+      ${switchButton}
+    </div>
+    ${renderUpcoming(upcoming)}
   `;
 }
 
-function renderNoCollectionDay(status) {
+function renderNoCollectionDay(status, upcoming) {
   const box = document.getElementById("result");
   if (!box) return;
 
@@ -669,22 +909,33 @@ function renderNoCollectionDay(status) {
       <div class="no-collection-icon">🛑</div>
       <div>
         <h2>今天暫停收運</h2>
-        <p>今天是週${escapeHtml(status.weekdayName)}，臺北市週三、週日例行停止垃圾收運。</p>
+        <p>今天是週${escapeHtml(status.weekdayName)}，臺北市週三、週日例行停收。</p>
         <p><strong>下一次收運：${escapeHtml(status.nextLabel)}</strong></p>
-        <p class="no-collection-note">請勿將垃圾放置於路邊，建議於下一個收運日再行丟棄。</p>
+        <p class="no-collection-note">請勿將垃圾放置於路邊。</p>
       </div>
     </div>
+    ${renderUpcoming(upcoming)}
   `;
+}
+
+function highlightCard(index, scroll) {
+  document.querySelectorAll(".recommend-card").forEach((card) => {
+    const active = Number(card.dataset.index) === index;
+    card.classList.toggle("is-selected", active);
+    card.setAttribute("aria-pressed", String(active));
+
+    if (active && scroll) {
+      card.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  });
 }
 
 
 // =========================
 // 地圖：推薦標記
 // =========================
-function showTrucksOnMap(results, position) {
+function showTrucksOnMap(results, position, fitMap) {
   clearTruckMarkers();
-
-  const points = [[position.lat, position.lng]];
 
   results.forEach((item, index) => {
     const station = item.station;
@@ -692,53 +943,51 @@ function showTrucksOnMap(results, position) {
     const marker = L.marker([station.lat, station.lng], {
       icon: createRankIcon(index + 1, index === 0),
       zIndexOffset: 500 - index,
+      title: formatShortAddress(station.address),
     })
       .addTo(map)
-      .bindPopup(`
-        <strong>${index === 0 ? "🏆 最佳推薦" : `推薦 #${index + 1}`}</strong><br>
-        ${escapeHtml(station.address)}
-      `);
+      .bindPopup(
+        `
+          <strong>#${index + 1} ${escapeHtml(formatShortAddress(station.address))}</strong><br>
+          🕒 ${formatScheduleTime(station.time)}–${formatScheduleTime(station.leaveTime)}
+        `,
+        { autoPan: false }
+      );
 
-    const card = document.getElementById(`recommend-card-${index}`);
-
-    const selectRecommendation = () => {
-      marker.openPopup();
-
-      document
-        .querySelectorAll(".recommend-card.is-selected")
-        .forEach((el) => el.classList.remove("is-selected"));
-
-      if (card) {
-        card.classList.add("is-selected");
-        card.scrollIntoView({ behavior: "smooth", block: "start" });
-      }
-
-      showTruckRoute(item);
-    };
-
-    marker.on("click", selectRecommendation);
-
-    if (card) {
-      card.addEventListener("click", (event) => {
-        // 點導航按鈕時只開導航
-        if (event.target instanceof Element && event.target.closest("a")) return;
-        selectRecommendation();
-      });
-    }
-
+    marker.on("click", () => selectRecommendation(index, false));
     truckMarkers.push(marker);
-    points.push([station.lat, station.lng]);
   });
 
-  map.fitBounds(L.latLngBounds(points), {
-    padding: [60, 60],
-    maxZoom: 17,
-  });
+  if (fitMap) {
+    const points = [
+      [position.lat, position.lng],
+      ...results.map((item) => [item.station.lat, item.station.lng]),
+    ];
+    map.fitBounds(L.latLngBounds(points), { padding: [50, 50], maxZoom: 17 });
+  }
 }
 
 function clearTruckMarkers() {
   truckMarkers.forEach((marker) => map.removeLayer(marker));
   truckMarkers = [];
+}
+
+// 點卡片或地圖標記：顯示路線；再點一次：收合
+function selectRecommendation(index, fromCard) {
+  const item = currentResults[index];
+  if (!item) return;
+
+  const marker = truckMarkers[index];
+
+  if (currentRouteKey === getRouteKey(item.station)) {
+    clearTruckRoute();
+    marker?.closePopup();
+    return;
+  }
+
+  showTruckRoute(item);
+  highlightCard(index, !fromCard);
+  marker?.openPopup();
 }
 
 
@@ -749,16 +998,10 @@ function getRouteKey(station) {
   return `${station.truck}|${station.time}|${station.lat}|${station.lng}`;
 }
 
-function showTruckRoute(item) {
-  const routeKey = getRouteKey(item.station);
-
-  // 再點一次同一個推薦點：收合路線
-  if (currentRouteKey === routeKey) {
-    clearTruckRoute();
-    return;
-  }
-
+function showTruckRoute(item, { fit = true } = {}) {
   clearTruckRoute();
+
+  const routeKey = getRouteKey(item.station);
   currentRouteKey = routeKey;
 
   const serviceDate = getServiceDate(getCurrentTime());
@@ -773,15 +1016,14 @@ function showTruckRoute(item) {
     .filter((x) => x.date && x.date >= startDate && x.date <= endDate)
     .sort((a, b) => a.date - b.date);
 
-  routeLine = L.polyline(
-    stops.map((x) => [x.station.lat, x.station.lng]),
-    {
-      color: "#1976d2",
-      weight: 5,
-      opacity: 0.8,
-      dashArray: "10,10",
-    }
-  ).addTo(map);
+  const points = stops.map((x) => [x.station.lat, x.station.lng]);
+
+  routeLine = L.polyline(points, {
+    color: "#1976d2",
+    weight: 5,
+    opacity: 0.8,
+    dashArray: "10,10",
+  }).addTo(map);
 
   stops.forEach(({ station }) => {
     if (getRouteKey(station) === routeKey) return;
@@ -789,18 +1031,25 @@ function showTruckRoute(item) {
     const marker = L.marker([station.lat, station.lng], {
       icon: createTruckIcon(),
       zIndexOffset: 2000,
+      keyboard: false,
     })
       .addTo(map)
       .bindPopup(`
         <strong>🚛 ${escapeHtml(station.truck)}</strong><br>
-        🕒 ${escapeHtml(formatScheduleTime(station.time))} ～ ${escapeHtml(formatScheduleTime(station.leaveTime))}<br>
-        📍 ${escapeHtml(station.address)}
+        🕒 ${formatScheduleTime(station.time)}–${formatScheduleTime(station.leaveTime)}<br>
+        📍 ${escapeHtml(formatShortAddress(station.address))}
       `);
 
     routeMarkers.push(marker);
   });
 
-  showRouteToggleButton();
+  document.getElementById("hideRouteBtn")?.classList.add("is-visible");
+
+  if (fit && points.length > 0) {
+    const bounds = L.latLngBounds(points);
+    if (userPosition) bounds.extend([userPosition.lat, userPosition.lng]);
+    map.fitBounds(bounds, { padding: [50, 50], maxZoom: 17 });
+  }
 }
 
 function clearTruckRoute() {
@@ -813,30 +1062,8 @@ function clearTruckRoute() {
   routeMarkers = [];
 
   currentRouteKey = null;
-  hideRouteToggleButton();
-}
-
-function showRouteToggleButton() {
-  let button = document.getElementById("toggleRecommendationMarkersBtn");
-
-  if (!button) {
-    button = document.createElement("button");
-    button.id = "toggleRecommendationMarkersBtn";
-    button.type = "button";
-    button.title = "隱藏路徑";
-    button.setAttribute("aria-label", "隱藏路徑");
-    button.innerHTML = "<span>隱藏</span><span>路徑</span>";
-    button.addEventListener("click", clearTruckRoute);
-
-    document.getElementById("map")?.appendChild(button);
-  }
-
-  button.style.display = "flex";
-}
-
-function hideRouteToggleButton() {
-  const button = document.getElementById("toggleRecommendationMarkersBtn");
-  if (button) button.style.display = "none";
+  document.getElementById("hideRouteBtn")?.classList.remove("is-visible");
+  highlightCard(-1, false);
 }
 
 
@@ -859,12 +1086,39 @@ function getDistanceMeters(lat1, lng1, lat2, lng2) {
 
 function formatDistance(meters) {
   if (meters >= 1000) return `${(meters / 1000).toFixed(1)} 公里`;
-  return `${Math.round(meters)} 公尺`;
+  return `${Math.round(meters / 10) * 10} 公尺`;
 }
 
-function showMessage(message) {
+// "臺北市中山區農安街182號" → "農安街182號"
+function formatShortAddress(address) {
+  const short = String(address || "")
+    .replace(/^臺?(臺|台)北市/, "")
+    .replace(/^[\u4e00-\u9fff]{2}區/, "");
+  return short || address || "未知地點";
+}
+
+function showMessage(text, type = "info") {
   const box = document.getElementById("message");
-  if (box) box.textContent = message;
+  if (!box) return;
+
+  box.textContent = text;
+  box.className = `message is-${type}`;
+}
+
+function setButtonBusy(btn, busy, busyText) {
+  if (!btn) return;
+
+  if (busy) {
+    if (!btn.dataset.originalText) btn.dataset.originalText = btn.innerHTML;
+    btn.innerHTML = busyText;
+    btn.disabled = true;
+    btn.classList.add("is-busy");
+  } else {
+    if (btn.dataset.originalText) btn.innerHTML = btn.dataset.originalText;
+    delete btn.dataset.originalText;
+    btn.disabled = false;
+    btn.classList.remove("is-busy");
+  }
 }
 
 function escapeHtml(value) {
@@ -878,21 +1132,21 @@ function escapeHtml(value) {
 
 function createUserIcon() {
   return L.divIcon({
-    className: "user-cartoon-icon",
-    html: "📍",
-    iconSize: [56, 56],
-    iconAnchor: [28, 56],   // 圖釘尖端在底部中央
-    popupAnchor: [0, -56],
+    className: "user-icon",
+    html: '<span class="user-dot"></span>',
+    iconSize: [22, 22],
+    iconAnchor: [11, 11],
+    popupAnchor: [0, -14],
   });
 }
 
 function createTruckIcon() {
   return L.divIcon({
-    className: "truck-cartoon-icon",
+    className: "truck-icon",
     html: "🚛",
-    iconSize: [48, 48],
-    iconAnchor: [24, 48],
-    popupAnchor: [0, -48],
+    iconSize: [32, 32],
+    iconAnchor: [16, 16],
+    popupAnchor: [0, -16],
   });
 }
 
