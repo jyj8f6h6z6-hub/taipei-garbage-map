@@ -17,6 +17,8 @@
   --warning: #ea580c;
   --warning-soft: #fff7ed;
 
+  --danger: #b91c1c;
+
   --border: #e2e8f0;
   --shadow-sm: 0 2px 8px rgba(15, 23, 42, 0.06);
   --shadow-md: 0 10px 28px rgba(15, 23, 42, 0.08);
@@ -48,6 +50,7 @@ body {
   display: grid;
   grid-template-columns: 380px 1fr;
   height: 100vh;
+  height: 100dvh; /* 手機瀏覽器網址列不會擋住底部 */
 }
 
 /* 左側欄 */
@@ -61,7 +64,7 @@ body {
 
 /* 地圖區 */
 #mapArea {
-  height: 100vh;
+  height: 100%;
   background: #e5e7eb;
 }
 
@@ -111,6 +114,7 @@ button {
   padding: 15px 18px;
   font-size: 16px;
   font-weight: 800;
+  font-family: inherit;
   cursor: pointer;
   border: none;
   border-radius: var(--radius-md);
@@ -132,6 +136,45 @@ button:hover {
 button:active {
   transform: translateY(0);
   box-shadow: 0 6px 14px rgba(37, 99, 235, 0.2);
+}
+
+button:focus-visible {
+  outline: 3px solid rgba(37, 99, 235, 0.35);
+  outline-offset: 2px;
+}
+
+/* 步行 / 騎車 切換 */
+.mode-toggle {
+  display: flex;
+  gap: 6px;
+  margin-top: 16px;
+  padding: 5px;
+  border-radius: var(--radius-md);
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+}
+
+.mode-toggle .mode-btn {
+  flex: 1;
+  margin: 0;
+  padding: 10px 12px;
+  font-size: 15px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  box-shadow: none;
+}
+
+.mode-toggle .mode-btn:hover {
+  background: rgba(255, 255, 255, 0.7);
+  transform: none;
+  box-shadow: none;
+}
+
+.mode-toggle .mode-btn.is-active {
+  background: #ffffff;
+  color: var(--primary);
+  box-shadow: var(--shadow-sm);
 }
 
 /* 地址搜尋 */
@@ -161,7 +204,8 @@ button:active {
   flex: 1;
   min-width: 0;
   padding: 13px 14px;
-  font-size: 15px;
+  font-size: 16px; /* 16px 以上，iPhone 點輸入框才不會自動放大 */
+  font-family: inherit;
   color: var(--text-main);
   background: #ffffff;
   border: 1px solid #cbd5e1;
@@ -191,20 +235,10 @@ button:active {
   white-space: nowrap;
 }
 
-.search-hint {
-  margin: 10px 0 0;
-  font-size: 13px;
-  color: var(--text-muted);
-  line-height: 1.6;
-}
-
 /* 訊息 */
 #message {
   min-height: 20px;
   margin-top: 12px;
-  padding: 0;
-  background: transparent;
-  border: none;
   font-size: 14px;
   font-weight: 650;
   color: var(--primary);
@@ -237,6 +271,12 @@ button:active {
   font-size: 15px;
 }
 
+#result > p.empty-tip {
+  margin-top: 10px;
+  color: var(--primary);
+  font-weight: 650;
+}
+
 /* 推薦卡片 */
 .recommend-card {
   padding: 18px;
@@ -245,14 +285,23 @@ button:active {
   background: linear-gradient(180deg, var(--warning-soft) 0%, #ffffff 58%);
   border: 1px solid #fed7aa;
   box-shadow: 0 8px 22px rgba(234, 88, 12, 0.08);
+  cursor: pointer;
+  transition:
+    border-color 0.16s ease,
+    box-shadow 0.16s ease;
 }
 
 .recommend-card:first-of-type {
   margin-top: 0;
 }
 
+.recommend-card.is-selected {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18), var(--shadow-md);
+}
+
 .recommend-card h3 {
-  margin: 0 0 14px;
+  margin: 0 0 12px;
   font-size: 18px;
   line-height: 1.35;
   font-weight: 850;
@@ -261,14 +310,32 @@ button:active {
 }
 
 .recommend-card p {
-  margin: 8px 0;
+  margin: 6px 0;
   font-size: 15px;
   line-height: 1.65;
   color: var(--text-main);
 }
 
-.recommend-card strong {
-  color: var(--text-main);
+.recommend-card .card-highlight {
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--success-soft);
+  color: #047857;
+  font-weight: 800;
+}
+
+.recommend-card .card-sub {
+  display: block;
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--text-muted);
+}
+
+.recommend-card .card-warning {
+  margin: 0 0 10px;
+  color: var(--danger);
+  font-weight: 750;
 }
 
 .recommend-card a {
@@ -294,77 +361,38 @@ button:active {
   box-shadow: 0 12px 24px rgba(22, 163, 74, 0.24);
 }
 
-/* 使用者定位 icon */
+/* 地圖圖示 */
 .user-cartoon-icon {
-  font-size: 56px;
+  font-size: 50px;
   line-height: 56px;
   text-align: center;
 }
 
 .truck-cartoon-icon {
-  font-size: 48px;
+  font-size: 40px;
   line-height: 48px;
   text-align: center;
 }
 
-/* 手機版 */
-@media (max-width: 768px) {
-  #app {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto 1fr;
-    height: 100vh;
-  }
-
-  #sidebar {
-    max-height: 46vh;
-    padding: 20px 18px;
-    border-right: none;
-    border-bottom: 1px solid var(--border);
-  }
-
-  #mapArea {
-    height: 54vh;
-  }
-
-  h1 {
-    font-size: 25px;
-  }
-
-  header p {
-    font-size: 14px;
-  }
-
-  button {
-    padding: 14px 16px;
-  }
-
-  .search-section {
-    padding: 16px;
-  }
-
-  #result {
-    margin-top: 20px;
-    padding: 16px;
-  }
-
-  #result h2 {
-    font-size: 19px;
-  }
-
-  .recommend-card {
-    padding: 16px;
-  }
-
-  .recommend-card h3 {
-    font-size: 17px;
-  }
-
-  .recommend-card p {
-    font-size: 14.5px;
-  }
-  
+.rank-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  border-radius: 50%;
+  background: var(--warning);
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 850;
+  border: 3px solid #ffffff;
+  box-shadow: 0 3px 8px rgba(15, 23, 42, 0.35);
 }
 
+.rank-icon.is-best {
+  background: var(--success);
+}
+
+/* 隱藏路徑按鈕 */
 #toggleRecommendationMarkersBtn {
   display: none;
 
@@ -408,19 +436,11 @@ button:active {
 #toggleRecommendationMarkersBtn:hover {
   background: #006ee6;
   transform: none;
-  box-shadow:
-    0 8px 20px rgba(0, 122, 255, 0.36),
-    0 3px 8px rgba(0, 0, 0, 0.18);
 }
 
 #toggleRecommendationMarkersBtn:active {
   transform: scale(0.94);
   background: #0062cc;
-}
-
-#toggleRecommendationMarkersBtn:focus-visible {
-  outline: 3px solid rgba(0, 122, 255, 0.3);
-  outline-offset: 3px;
 }
 
 /* 停收日提示 */
@@ -431,11 +451,7 @@ button:active {
   padding: 20px;
   border: 1px solid #fecaca;
   border-radius: var(--radius-lg);
-  background: linear-gradient(
-    180deg,
-    #fef2f2 0%,
-    #ffffff 72%
-  );
+  background: linear-gradient(180deg, #fef2f2 0%, #ffffff 72%);
   box-shadow: 0 8px 22px rgba(220, 38, 38, 0.08);
 }
 
@@ -447,7 +463,7 @@ button:active {
 
 .no-collection-card h2 {
   margin: 0 0 10px;
-  color: #b91c1c;
+  color: var(--danger);
   font-size: 20px;
   font-weight: 850;
 }
@@ -464,7 +480,56 @@ button:active {
   font-size: 14px;
 }
 
+/* 手機版 */
 @media (max-width: 768px) {
+  #app {
+    grid-template-columns: 1fr;
+    grid-template-rows: 46% 54%;
+  }
+
+  #sidebar {
+    padding: 20px 18px;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+
+  h1 {
+    font-size: 25px;
+  }
+
+  header p {
+    font-size: 14px;
+  }
+
+  button {
+    padding: 14px 16px;
+  }
+
+  .search-section {
+    padding: 16px;
+  }
+
+  #result {
+    margin-top: 20px;
+    padding: 16px;
+  }
+
+  #result h2 {
+    font-size: 19px;
+  }
+
+  .recommend-card {
+    padding: 16px;
+  }
+
+  .recommend-card h3 {
+    font-size: 17px;
+  }
+
+  .recommend-card p {
+    font-size: 14.5px;
+  }
+
   .no-collection-card {
     gap: 12px;
     padding: 16px;
