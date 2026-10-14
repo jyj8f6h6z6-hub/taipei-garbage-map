@@ -1,5 +1,5 @@
 // =========================================================
-// 台北垃圾車即時查詢  script.js  v1.5.0
+// 台北垃圾車即時查詢  script.js  v1.6.0
 // =========================================================
 
 
@@ -92,6 +92,7 @@ function initMap() {
   L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
     maxZoom: 19,
     attribution: "&copy; OpenStreetMap contributors",
+    crossOrigin: true,
   }).addTo(map);
 
   setTimeout(() => map.invalidateSize(), 300);

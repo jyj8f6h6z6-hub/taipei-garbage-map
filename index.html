@@ -7,8 +7,17 @@
   <meta name="description" content="找出你現在最快可以趕上的臺北市垃圾車停靠點，支援 GPS 定位與地址搜尋。">
   <meta name="theme-color" content="#2563eb">
 
+  <!-- App Icon / 安裝到手機 -->
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon.png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="manifest" href="manifest.json">
+  <meta name="apple-mobile-web-app-title" content="垃圾車">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-  <link rel="stylesheet" href="style.css?v=150">
+  <link rel="stylesheet" href="style.css?v=160">
 
   <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-W784GKJ76H"></script>
@@ -33,6 +42,11 @@
         <h1>🚛 台北垃圾車即時查詢</h1>
         <p class="tagline">找出你現在最快趕得上的垃圾車</p>
         <p id="dataStatus" class="data-status">資料載入中…</p>
+        <p
+          id="offlineBadge"
+          class="data-status"
+          style="display: none; background: var(--warning-soft); color: var(--warning);"
+        >📴 離線模式：使用上次的班次資料，無法搜尋地址</p>
       </header>
 
       <section class="controls" aria-label="搜尋條件">
@@ -73,13 +87,88 @@
 
       <footer class="app-footer">
         資料來源：臺北市資料大平臺，每日自動更新。<br>
-        時間僅供參考，實際以現場垃圾車為準。
+        時間僅供參考，實際以現場垃圾車為準。<br>
+        <span id="appVersion">版本 讀取中…</span>
       </footer>
     </aside>
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="script.js?v=150"></script>
+  <script src="script.js?v=160"></script>
   <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDHJ18rC0CuG4OGUbF-c4H7xavGoKOrTgw&loading=async"></script>
+
+  <!-- 安裝、自動更新、版本號、離線提示 -->
+  <script>
+    (function () {
+      // 離線提示
+      function updateOnlineStatus() {
+        const badge = document.getElementById("offlineBadge");
+        if (badge) badge.style.display = navigator.onLine ? "none" : "inline-block";
+      }
+      window.addEventListener("online", updateOnlineStatus);
+      window.addEventListener("offline", updateOnlineStatus);
+      updateOnlineStatus();
+
+      const versionEl = document.getElementById("appVersion");
+
+      if (!("serviceWorker" in navigator)) {
+        if (versionEl) versionEl.textContent = "版本 v1.6.0（此瀏覽器不支援安裝）";
+        return;
+      }
+
+      function askVersion() {
+        navigator.serviceWorker.controller?.postMessage({ type: "GET_VERSION" });
+      }
+
+      // 收到版本號
+      navigator.serviceWorker.addEventListener("message", (event) => {
+        if (!event.data || event.data.type !== "VERSION") return;
+
+        if (versionEl) versionEl.textContent = `版本 v${event.data.version}`;
+
+        if (sessionStorage.getItem("justUpdated")) {
+          sessionStorage.removeItem("justUpdated");
+          if (typeof showMessage === "function") {
+            showMessage(`✅ 已更新到 v${event.data.version}`, "success");
+          }
+        }
+      });
+
+      // 新版本接手時，自動重新整理一次
+      let hadController = Boolean(navigator.serviceWorker.controller);
+      let reloading = false;
+
+      navigator.serviceWorker.addEventListener("controllerchange", () => {
+        if (!hadController) {
+          hadController = true; // 第一次安裝完成
+          askVersion();
+          return;
+        }
+        if (reloading) return;
+        reloading = true;
+        sessionStorage.setItem("justUpdated", "1");
+        location.reload();
+      });
+
+      window.addEventListener("load", async () => {
+        try {
+          const reg = await navigator.serviceWorker.register("sw.js");
+          askVersion();
+
+          // App 放在背景很久再切回來時，檢查有沒有新版本
+          let lastCheck = Date.now();
+          document.addEventListener("visibilitychange", () => {
+            if (document.visibilityState !== "visible") return;
+            if (Date.now() - lastCheck < 30 * 60 * 1000) return;
+            lastCheck = Date.now();
+            reg.update().catch(() => {});
+          });
+        } catch (err) {
+          console.warn("安裝功能註冊失敗：", err);
+          if (versionEl) versionEl.textContent = "版本 v1.6.0";
+        }
+      });
+    })();
+  </script>
 </body>
 </html>
